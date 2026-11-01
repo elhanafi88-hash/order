@@ -62,8 +62,8 @@ h2.sec{font-family:var(--font-display);font-size:19px;margin:6px 0 0;border-inli
 .btn.danger{color:var(--late);border-color:var(--late);background:transparent}
 .btn.small{padding:4px 10px;min-height:30px;font-size:13px}
 .notice{background:var(--surface);border:1px solid var(--soon);color:var(--soon);border-radius:6px;padding:10px 14px;font-size:13px}
-.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30;background:var(--bg);padding-top:6px}
-.tab{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;cursor:pointer;font-weight:600;color:var(--muted);white-space:nowrap}
+.tabs{display:flex;flex-wrap:wrap;gap:2px 4px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30;background:var(--bg);padding-top:6px}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:8px 12px;cursor:pointer;font-weight:600;color:var(--muted);white-space:nowrap}
 .tab[aria-current="page"]{color:var(--accent-ink);background:var(--accent);border-bottom-color:var(--accent);border-radius:8px 8px 0 0}
 .tab:hover{color:var(--ink)}
 .tab[aria-current="page"],.tab[aria-current="page"]:hover{color:var(--accent-ink)}
@@ -77,7 +77,8 @@ h2.sec{font-family:var(--font-display);font-size:19px;margin:6px 0 0;border-inli
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 14px;cursor:pointer;font-size:13px;font-weight:500}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .in{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:7px 10px;min-height:36px}
-.grow{flex:1;min-width:160px;max-width:320px}
+.grow{flex:1;min-width:160px;max-width:440px}
+@media (max-height:760px){.tabs{position:static}}
 .sp{flex:1}
 .auto{color:var(--s-prod);font-style:italic}
 .auto::before{content:'⚙ ';font-style:normal}
@@ -1229,10 +1230,10 @@ function vEntryReg(){}
 var VIEWS={entry:vEntry,files:vFiles,tracking:vTracking,purchase:vPurchase,dashboard:vDashboard,orders:vOrders,production:function(){return stageSection('prod')},schedule:vSchedule,materials:vMaterials,galvanizing:vGalv,
   packing:function(){return stageSection('pack')},quality:vQuality,delivery:vDelivery,reports:vReports};
 function topScroll(){
-  var tb=$('tabs');if(tb)document.documentElement.style.setProperty('--tabh',(tb.offsetHeight)+'px');
+  var tb=$('tabs'),th=(tb&&getComputedStyle(tb).position==='sticky')?tb.offsetHeight:0;document.documentElement.style.setProperty('--tabh',th+'px');
   var v=$('view');if(!v)return;
   [].slice.call(v.querySelectorAll('.tablebox')).forEach(function(box){
-    box.style.maxHeight=Math.max(260,window.innerHeight-(box.getBoundingClientRect().top+(window.pageYOffset||0))-30)+'px';
+    box.style.maxHeight=Math.max(260,window.innerHeight-th-80,window.innerHeight-(box.getBoundingClientRect().top+(window.pageYOffset||0))-30)+'px';
     if(box.scrollWidth<=box.clientWidth+2)return;
     var sp=h('div'),top=h('div',{class:'tscroll','aria-hidden':'true'},sp),lock=0;
     sp.style.width=box.scrollWidth+'px';
