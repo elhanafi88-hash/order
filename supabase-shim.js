@@ -4,6 +4,8 @@
 (function () {
   "use strict";
   var CFG = window.MX_SUPABASE || {};
+  /* Not configured yet: leave window.claude unset so the page runs on its built-in data. */
+  if (!CFG.url || CFG.url.indexOf("__") === 0 || !window.supabase) return;
   var sb = window.supabase.createClient(CFG.url, CFG.anonKey);
   var BUCKET = "files";
   var session = null;
@@ -29,21 +31,20 @@
   var dlg = null;
   function openLogin() {
     if (dlg) { dlg.hidden = false; return; }
-    var em = el("input", { type: "email", autocomplete: "username", placeholder: "الإيميل / Email", class: "mx-in", required: "" });
-    var pw = el("input", { type: "password", autocomplete: "current-password", placeholder: "الباسورد / Password", class: "mx-in", required: "" });
+    var em = el("input", { type: "email", autocomplete: "email", placeholder: "الإيميل / Email", class: "mx-in", required: "" });
     var msg = el("div", { class: "mx-msg", role: "status" });
     var form = el("form", { class: "mx-card", on: { submit: function (e) {
-      e.preventDefault(); msg.textContent = "جاري الدخول...";
-      sb.auth.signInWithPassword({ email: em.value.trim(), password: pw.value }).then(function (r) {
-        if (r.error) msg.textContent = "الإيميل أو الباسورد غلط.";
+      e.preventDefault(); msg.textContent = "جاري الإرسال...";
+      sb.auth.signInWithOtp({ email: em.value.trim(), options: { emailRedirectTo: location.origin + location.pathname } }).then(function (r) {
+        msg.textContent = r.error ? "تعذر الإرسال. جرّب تاني بعد شوية." : "✓ بعتنالك رابط دخول على الإيميل. افتحه من نفس الجهاز.";
       });
     } } }, [
       el("h2", { text: "دخول الموظفين" }),
-      el("p", { class: "mx-sub", text: "التعديل للموظفين بس. الحسابات بيعملها صاحب الموقع." }),
-      em, pw, msg,
+      el("p", { class: "mx-sub", text: "اكتب إيميلك وهيوصلك رابط دخول. التعديل للموظفين المسجلين بس." }),
+      em, msg,
       el("div", { class: "mx-row" }, [
         el("button", { type: "button", class: "btn", text: "إلغاء", on: { click: function () { dlg.hidden = true; } } }),
-        el("button", { type: "submit", class: "btn primary", text: "دخول" })
+        el("button", { type: "submit", class: "btn primary", text: "ابعت الرابط" })
       ])
     ]);
     dlg = el("div", { class: "mx-scrim", dir: "rtl", lang: "ar", "data-noi18n": "" }, [form]);
