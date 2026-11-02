@@ -355,7 +355,7 @@ function calcOrder(o,M){
     var c={it:it,gv:gv,px:px,qty:n(it.qty),prod:a.prod,sent:a.sent,ret:a.ret,pack:a.pack,pass:a.pass,fail:a.fail,deliv:a.deliv};
     c.back=gv?a.ret:a.prod;c.out=gv?Math.max(0,a.sent-a.ret):0;c.toPack=Math.max(0,c.back-a.pack);
     var ms=D.mats.filter(function(m){return m.orderId===o.id&&(!m.itemId||m.itemId===it.id)});c.mat=!ms.length?'none':(ms.some(function(m){return n(m.required)>n(m.received)})?'short':'ok');
-    c.ready=Math.max(0,a.prod-a.deliv);c.remain=Math.max(0,c.qty-a.deliv);
+    c.ready=Math.max(0,a.prod-c.out-a.deliv);c.remain=Math.max(0,c.qty-a.deliv);
     t.qty+=c.qty;t.prod+=c.prod;t.pack+=c.pack;t.pass+=c.pass;t.fail+=c.fail;t.deliv+=c.deliv;t.ready+=c.ready;t.out+=c.out;t.toPack+=c.toPack;
     if(gv){t.sent+=c.sent;t.ret+=c.ret}
     return c;
@@ -1139,7 +1139,7 @@ function vEntry(){
   /* B. quantities */
   var qdate=h('input',{class:'in',id:'en-date',type:'date',value:today(),'aria-label':'التاريخ'}),dno=h('input',{class:'in',id:'en-dn',type:'text',placeholder:'اختياري','aria-label':'رقم إذن التسليم'});
   var qin={},prev=h('div',{class:'small-t',role:'status'}),msg=h('div',{class:'msg',role:'alert'});
-  function collect(){var pl=[],dl2=[],warn=[];x.rows.forEach(function(c){var v=qin[c.it.id],a=n(v.p.value),b=n(v.d.value),rem=Math.max(0,c.qty-c.prod),rd=Math.max(0,c.prod+a-c.deliv);
+  function collect(){var pl=[],dl2=[],warn=[];x.rows.forEach(function(c){var v=qin[c.it.id],a=n(v.p.value),b=n(v.d.value),rem=Math.max(0,c.qty-c.prod),rd=Math.max(0,c.prod+a-c.out-c.deliv);
     if(a>0){pl.push({itemId:c.it.id,qty:a});if(a>rem)warn.push(c.it.name+': الإنتاج '+fq(a)+' أكتر من المتبقي '+fq(rem))}
     if(b>0){dl2.push({itemId:c.it.id,qty:b});if(b>rd)warn.push(c.it.name+': التسليم '+fq(b)+' أكتر من الجاهز '+fq(rd))}});return {pl:pl,dl:dl2,warn:warn}}
   function upd(){var c=collect();msg.textContent='';prev.textContent=(c.pl.length||c.dl.length)?'هتسجّل: '+(c.pl.length?'إنتاج '+c.pl.map(function(l){return itemName(o.id,l.itemId)+' × '+fq(l.qty)}).join('، '):'')+(c.pl.length&&c.dl.length?' — ':'')+(c.dl.length?'تسليم '+c.dl.map(function(l){return itemName(o.id,l.itemId)+' × '+fq(l.qty)}).join('، '):''):'';
@@ -1786,8 +1786,9 @@ $('scrim').addEventListener('click',function(e){if(e.target===$('scrim'))closeMo
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('scrim').hidden)closeModal()});
 window.addEventListener('hashchange',function(){fromHash();render()});
 fromHash();render();
+var localDl={save:function(o){try{var b=o.data instanceof Blob?o.data:new Blob([o.data]),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=o.filename;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},4000);return Promise.resolve()}catch(e){return Promise.reject(e)}}};
 function boot(d,dwn){
-  db=d;dl=dwn;
+  db=d;dl=dwn||localDl;
   if(db){
     usingDb=true;
     COLS.forEach(function(c){
