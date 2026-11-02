@@ -1445,7 +1445,7 @@ function filesSection(id){
           var rec={id:newId(),orderId:id,kind:k,name:f.name,assetId:r.id,size:r.sizeBytes,type:r.contentType,date:today(),createdAt:new Date().toISOString()};
           D.docs.push(rec);return persist('docs',rec);
         }).then(function(){
-          if(k==='order'&&ty==='application/pdf')return f.arrayBuffer().then(parsePdo).then(function(r){return r.mats.length?addMats(id,r.mats).then(function(n){imp.push(f.name+': اتضاف '+n+' خامة من الأوردر تلقائي.')}):imp.push(f.name+': مفيش خامات اتقرت من الملف، سجّلها يدوي.')}).catch(function(){imp.push(f.name+': تعذرت قراءة الخامات، سجّلها يدوي.')});
+          if(k==='order'&&ty==='application/pdf')return f.arrayBuffer().then(parsePdo).then(function(r){return addPdfItems(id,r.items).then(function(ni){if(ni)imp.push(f.name+': اتضاف '+ni+' رسمة بكميتها.');return r.mats.length?addMats(id,r.mats).then(function(n){imp.push(f.name+': اتضاف '+n+' خامة من الأوردر تلقائي.')}):imp.push(f.name+': مفيش خامات اتقرت من الملف، سجّلها يدوي.')})}).catch(function(){imp.push(f.name+': تعذرت قراءة الخامات، سجّلها يدوي.')});
         }).catch(function(e){bad.push(f.name+': تعذر رفع الملف.')});
       })},Promise.resolve()).then(function(){draw();var m=box.querySelector('[role=status]');if(m&&(bad.length||imp.length))m.textContent=imp.concat(bad).join(' | ')});
     }
@@ -1502,9 +1502,13 @@ function pdoLines(pdf){
 }
 function parsePdo(buf){
   return loadPdfjs().then(function(L){return L.getDocument({data:new Uint8Array(buf.slice(0))}).promise}).then(pdoLines).then(function(ls){
-    var r={no:'',date:'',title:'',mats:[]},inRaw=false,done=false,cand='';
+    var r={no:'',date:'',title:'',mats:[],items:[]},inRaw=false,done=false,cand='';
     ls.forEach(function(l){
       var m;
+      if((m=l.s.match(/^(.*?)[=:\s]*\bQTY\b\s*[=:]?\s*(\d[\d,]*)\s*(PCS|PC|NOS|NO|SETS?|UNITS?)?\b/i))&&!/^Sr\b|Quantity/i.test(l.s)){
+        var dim=m[1].replace(/[=:\s]+$/,'').trim(),q=parseInt(m[2].replace(/,/g,''),10);
+        if(q>0){r.items.push({dim:dim,qty:q});return}
+      }
       if(!r.no&&(m=l.s.match(/PDO\s*\d*\s*No\.?\s*(\d{3,6})/i)))r.no=m[1];
       if(!r.date&&(m=l.s.match(/PDO\s*\d*\s*Date\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i)))r.date=m[3]+'-'+p2(+m[1])+'-'+p2(+m[2]);
       if(!r.title&&(m=l.s.match(/RAW\s*MATERIALS\s+(.+)$/i))&&!/Quantity|Unit|Raw\s*Materials/i.test(m[1]))r.title=m[1].trim();
@@ -1525,23 +1529,36 @@ function addMats(orderId,mats){
   var add=mats.filter(function(m){return !have[m.code+'|'+m.name]}),t=Date.now();
   return add.reduce(function(pr,m,i){return pr.then(function(){return persist('mats',{id:newId(),orderId:orderId,itemId:'',code:m.code,name:m.name,unit:m.unit,required:m.required,received:0,used:0,expected:'',reqDate:'',notes:'',createdAt:new Date(t+i).toISOString()})})},Promise.resolve()).then(function(){return add.length});
 }
+function pdfItems(list,have){
+  var used={};(have||[]).forEach(function(it){used[(it.name||'').toLowerCase()]=1});
+  var out=[],k=(have||[]).length;
+  list.forEach(function(d){k++;var code=d.dim||'',type=code?'':('D-'+String(k).padStart(2,'0')),nm=[type,code].filter(Boolean).join(' · ');
+    if(used[nm.toLowerCase()])return;used[nm.toLowerCase()]=1;
+    out.push({id:'i'+newId(),type:type,code:code,name:nm,qty:d.qty,finish:'none'})});
+  return out;
+}
+function addPdfItems(orderId,list){
+  var o=D.orders.filter(function(x){return x.id===orderId})[0];if(!o||!list.length)return Promise.resolve(0);
+  var add=pdfItems(list,o.items||[]);if(!add.length)return Promise.resolve(0);
+  var ob=Object.assign({},o);ob.items=(o.items||[]).concat(add);return persist('orders',ob).then(function(){return add.length});
+}
 function projOf(t){var seg=String(t||'').split('|').map(function(x){return x.trim()}).filter(function(x){return x&&!/^(DENPLEX|FIBREX)\b/i.test(x)&&!/^UNEC/i.test(x)&&!/^SMD-/i.test(x)&&!/^CASE\b/i.test(x)&&!/^PDO\b/i.test(x)});return seg[0]||''}
 var pdfNew=[];
 function newOrderFromPdf(f){
   return f.arrayBuffer().then(parsePdo).then(function(r){
     if(!r.no)throw new Error('no');
     var id=(D.orders.filter(function(o){return String(o.no)===r.no})[0]||{}).id,isNew=!id;
-    if(isNew){id='pdo'+r.no;pdfNew.push(id);
-      return persist('orders',{id:id,no:r.no,division:S.impdv||'steel',title:r.title||('PDO '+r.no),site:projOf(r.title),owner:'',pdoDate:r.date,due:'',startDate:'',prodEnd:'',prodDays:'',galvDays:'',finDays:'',notes:'اتسجّل تلقائي من ملف PDF (الخامات بس). راجع اسم المشروع، وضيف الايتمات (الرسومات).',status:'active',createdAt:new Date().toISOString(),items:[]}).then(function(){return [r,id,isNew]});
+    if(isNew){id='pdo'+r.no;
+      return persist('orders',{id:id,no:r.no,division:S.impdv||'steel',title:r.title||('PDO '+r.no),site:projOf(r.title),owner:'',pdoDate:r.date,due:'',startDate:'',prodEnd:'',prodDays:'',galvDays:'',finDays:'',notes:r.items.length?'اتسجّل تلقائي من ملف PDF (الخامات والرسومات). راجع اسم المشروع والتشطيب.':'اتسجّل تلقائي من ملف PDF (الخامات بس). راجع اسم المشروع، وضيف الايتمات (الرسومات).',status:'active',createdAt:new Date().toISOString(),items:pdfItems(r.items,[])}).then(function(){return [r,id,isNew,r.items.length]});
     }
-    return [r,id,isNew];
+    return addPdfItems(id,r.items).then(function(k){return [r,id,isNew,k]});
   }).then(function(x){
-    var r=x[0],id=x[1],isNew=x[2];
+    var r=x[0],id=x[1],isNew=x[2],ni=x[3];pdfNew.push(id);
     return (as?as.upload(f,{type:'application/pdf'}):Promise.reject('no-storage')).then(function(u){
       var rec={id:newId(),orderId:id,kind:'order',name:f.name,assetId:u.id,size:u.sizeBytes,type:u.contentType,date:today(),createdAt:new Date().toISOString()};
       D.docs.push(rec);return persist('docs',rec);
     }).catch(function(){}).then(function(){return addMats(id,r.mats)}).then(function(n){
-      return (isNew?'اتعمل أوردر '+r.no+' · ':'الأوردر '+r.no+' موجود · ')+'اتضاف '+n+' خامة.';
+      return (isNew?'اتعمل أوردر '+r.no+' · ':'الأوردر '+r.no+' موجود · ')+'اتضاف '+n+' خامة'+(ni?' و'+ni+' رسمة':'')+'.';
     });
   }).catch(function(){return f.name+': معرفتش أقرا رقم الأوردر. تأكد إنه ملف PDO.'});
 }
@@ -1549,7 +1566,7 @@ function importPdfs(fl){
   fl=[].slice.call(fl||[]).filter(function(f){return /\.pdf$/i.test(f.name)});
   if(!fl.length){notice('اختار ملفات PDF للأوردرات.');return}
   var out=[];pdfNew=[];notice('جاري قراءة '+fl.length+' ملف...');
-  fl.reduce(function(pr,f){return pr.then(function(){return newOrderFromPdf(f).then(function(m){out.push(m);notice('جاري القراءة... '+out.length+'/'+fl.length)})})},Promise.resolve()).then(function(){notice(out.join('  ·  '));if(pdfNew.length)showNewOrder(S.impdv||'steel',pdfNew[pdfNew.length-1])});
+  fl.reduce(function(pr,f){return pr.then(function(){return newOrderFromPdf(f).then(function(m){out.push(m);notice('جاري القراءة... '+out.length+'/'+fl.length)})})},Promise.resolve()).then(function(){notice(out.join('  ·  '));if(pdfNew.length){var li=pdfNew[pdfNew.length-1],lo=D.orders.filter(function(o){return o.id===li})[0];showNewOrder(lo?divOf(lo):(S.impdv||'steel'),li)}});
 }
 function viewDoc(d,backId){
   var ext=(d.name.split('.').pop()||'').toLowerCase(),ty=EXT[ext]||d.type||'';
