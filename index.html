@@ -96,7 +96,11 @@ h2.sec{font-family:var(--font-display);font-size:19px;margin:6px 0 0;border-inli
 .legend b{font-weight:600}
 .oh.first1{font-size:15px;padding-block:11px}
 td>.bar{flex-wrap:nowrap}
-.tscroll{position:sticky;top:var(--tabh,48px);z-index:25;overflow-x:auto;overflow-y:hidden;height:16px;background:var(--bg);border-radius:8px;margin-bottom:-6px}.tscroll>div{height:1px}
+.tnav{direction:ltr;position:sticky;top:var(--tabh,48px);z-index:25;display:flex;align-items:center;gap:8px;background:var(--bg);padding:6px 0;margin-bottom:4px}
+.tnav .btn{min-width:44px;padding:6px 12px;font-size:16px;font-weight:700;line-height:1}
+.tscroll{flex:1;overflow-x:auto;overflow-y:hidden;height:18px;border-radius:9px;background:var(--surface-2,#eef1f4);border:1px solid var(--line)}.tscroll>div{height:1px}
+.tscroll::-webkit-scrollbar{height:16px}.tscroll::-webkit-scrollbar-track{background:transparent}.tscroll::-webkit-scrollbar-thumb{background:#8a97a6;border-radius:8px;border:3px solid transparent;background-clip:padding-box}.tscroll::-webkit-scrollbar-thumb:hover{background:#5d6b7a;background-clip:padding-box}
+.tscroll{scrollbar-width:auto;scrollbar-color:#8a97a6 transparent}
 .tablebox{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:calc(100vh - 150px);min-height:120px}
 .tablebox thead th{position:sticky;top:0;z-index:6;box-shadow:0 1px 0 var(--line)}
 table{width:100%;border-collapse:collapse;min-width:760px}
@@ -1369,11 +1373,20 @@ function topScroll(){
   [].slice.call(v.querySelectorAll('.tablebox')).forEach(function(box){
     box.style.maxHeight=Math.max(260,window.innerHeight-th-80,window.innerHeight-(box.getBoundingClientRect().top+(window.pageYOffset||0))-30)+'px';
     if(box.scrollWidth<=box.clientWidth+2)return;
-    var sp=h('div'),top=h('div',{class:'tscroll','aria-hidden':'true'},sp),lock=0;
+    var sp=h('div'),top=h('div',{class:'tscroll','aria-hidden':'true'},sp),src=null,rq=0;
     sp.style.width=box.scrollWidth+'px';
-    top.onscroll=function(){if(lock){lock=0;return}lock=1;box.scrollLeft=top.scrollLeft};
-    box.onscroll=function(){if(lock){lock=0;return}lock=1;top.scrollLeft=box.scrollLeft};
-    box.parentNode.insertBefore(top,box);
+    function rel(){cancelAnimationFrame(rq);rq=requestAnimationFrame(function(){rq=requestAnimationFrame(function(){src=null})})}
+    top.onscroll=function(){if(src==='box')return;src='top';box.scrollLeft=top.scrollLeft;rel()};
+    box.onscroll=function(){if(src==='top')return;src='box';top.scrollLeft=box.scrollLeft;rel()};
+    function mv(d){box.scrollBy({left:d*Math.max(200,box.clientWidth*0.6),behavior:'smooth'})}
+    var nav=h('div',{class:'tnav'},
+      h('button',{class:'btn',type:'button',title:'حرّك الجدول شمال','aria-label':'حرّك الجدول شمال',onclick:function(){mv(-1)}},'◀'),
+      top,
+      h('button',{class:'btn',type:'button',title:'حرّك الجدول يمين','aria-label':'حرّك الجدول يمين',onclick:function(){mv(1)}},'▶'));
+    box.parentNode.insertBefore(nav,box);
+    function fit(){var dr=getComputedStyle(box).direction;if(top.style.direction!==dr){top.style.direction=dr;top.scrollLeft=box.scrollLeft}sp.style.width=Math.max(0,box.scrollWidth-box.clientWidth+top.clientWidth)+'px';nav.style.display=box.scrollWidth>box.clientWidth+2?'':'none'}
+    fit();if(window.ResizeObserver){var ro=new ResizeObserver(fit);ro.observe(box);if(box.firstElementChild)ro.observe(box.firstElementChild)}
+    box.addEventListener('pointerenter',fit);
   });
 }
 window.addEventListener('resize',function(){if(rt)return;sched()});
