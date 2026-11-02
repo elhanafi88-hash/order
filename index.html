@@ -1528,7 +1528,6 @@ function addMats(orderId,mats){
 function projOf(t){var seg=String(t||'').split('|').map(function(x){return x.trim()}).filter(function(x){return x&&!/^(DENPLEX|FIBREX)\b/i.test(x)&&!/^UNEC/i.test(x)&&!/^SMD-/i.test(x)&&!/^CASE\b/i.test(x)&&!/^PDO\b/i.test(x)});return seg[0]||''}
 var pdfNew=[];
 function newOrderFromPdf(f){
-  if(!as)return Promise.resolve(f.name+': رفع الملفات متاح لصاحب الصفحة من الرابط الأونلاين بس.');
   return f.arrayBuffer().then(parsePdo).then(function(r){
     if(!r.no)throw new Error('no');
     var id=(D.orders.filter(function(o){return String(o.no)===r.no})[0]||{}).id,isNew=!id;
@@ -1538,7 +1537,7 @@ function newOrderFromPdf(f){
     return [r,id,isNew];
   }).then(function(x){
     var r=x[0],id=x[1],isNew=x[2];
-    return as.upload(f,{type:'application/pdf'}).then(function(u){
+    return (as?as.upload(f,{type:'application/pdf'}):Promise.reject('no-storage')).then(function(u){
       var rec={id:newId(),orderId:id,kind:'order',name:f.name,assetId:u.id,size:u.sizeBytes,type:u.contentType,date:today(),createdAt:new Date().toISOString()};
       D.docs.push(rec);return persist('docs',rec);
     }).catch(function(){}).then(function(){return addMats(id,r.mats)}).then(function(n){
