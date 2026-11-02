@@ -215,6 +215,23 @@ tr.og td.oh.click:nth-child(2){min-width:170px}
 .lg-wait{background:color-mix(in srgb,var(--s-cancel) 12%,var(--surface));border:1.5px dotted var(--s-cancel)}
 .lg-est{background:color-mix(in srgb,var(--s-prod) 14%,var(--surface));border:1.5px dashed var(--s-prod)}
 .lg-off{background:color-mix(in srgb,var(--muted) 25%,transparent)}
+.ahead{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:-6px 0 12px;color:var(--muted);font-size:13px} .ahead b{font-size:15px;color:var(--ink)}
+.acards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:640px){.acards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.acard{border:1px solid var(--line);border-inline-start:5px solid var(--cc);border-radius:8px;padding:9px 11px;background:color-mix(in srgb,var(--cc) 8%,var(--surface))}
+.acard .al{font-size:12px;font-weight:600;color:var(--ink)} .acard .av{font-size:24px;font-weight:700;color:var(--cc);line-height:1.25;font-variant-numeric:tabular-nums} .acard .as{font-size:11.5px;color:var(--muted)}
+.acard.c-stock{--cc:var(--s-prod)} .acard.c-res{--cc:var(--accent)} .acard.c-left{--cc:var(--ok)} .acard.c-left.neg{--cc:var(--late)} .acard.c-short{--cc:var(--late)} .acard.c-short.zero{--cc:var(--ok)}
+.acov{margin-top:10px;display:grid;gap:4px} .acov-t{height:8px;border-radius:5px;background:color-mix(in srgb,var(--late) 18%,var(--surface-2));overflow:hidden;position:relative}
+.acov-f{position:absolute;inset-block:0;inset-inline-start:0;background:var(--ok);border-radius:5px;transition:width .2s}
+.atbl{width:100%;min-width:640px;border-collapse:collapse} .atbl td{vertical-align:middle}
+.atbl tr.touched td{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.abar{position:relative;height:8px;border-radius:5px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden;min-width:110px;margin-bottom:3px}
+.abar i{position:absolute;inset-block:0} .ab-old{inset-inline-start:0;background:var(--s-ready)} .ab-new{background:var(--accent);transition:width .2s}
+.ash{font-variant-numeric:tabular-nums;color:var(--late)} .ash.done{color:var(--ok)}
+.aqty{display:flex;align-items:center;border:1px solid var(--line);border-radius:7px;background:var(--surface);overflow:hidden;width:130px}
+.aqty:focus-within{outline:2px solid var(--focus);outline-offset:1px}
+.ain{border:0!important;outline:0!important;width:100%;min-width:0;text-align:end;font-weight:700;font-variant-numeric:tabular-nums;background:transparent}
+.ain.bad{color:var(--late)} .au{font-size:11px;color:var(--muted);padding:0 8px;border-inline-start:1px solid var(--line);align-self:stretch;display:flex;align-items:center;background:var(--surface-2)}
 .gleg{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
 .gleg b{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:5px}
 @media (max-width:560px){.grid{grid-template-columns:1fr} h1{font-size:23px} .irow{grid-template-columns:1fr 1fr} .mrow{grid-template-columns:1fr 1fr}}
@@ -1008,40 +1025,75 @@ function openStockLog(code){
 /* manual reservation by priority: you decide how much each order gets */
 function openAlloc(code,hint){
   var r=storeRowOf(code);if(!r)return;
-  var err=h('div',{class:'msg',role:'alert'}),sum=h('div',{class:'notice',role:'status',style:'margin:10px 0'});
+  var U=r.unit||'',err=h('div',{class:'msg',role:'alert'});
   var lines=r.lines.slice().sort(function(a,b){var x=V.by[a.orderId],y=V.by[b.orderId];return (x.o.pdoDate||'').localeCompare(y.o.pdoDate||'')||byNo(x.o,y.o)});
+  var totShort=lines.reduce(function(a,m){return a+matState(m).sh},0);
+  function card(lab,cls){var v=h('div',{class:'av'}),s=h('div',{class:'as'});return {el:h('div',{class:'acard '+cls},h('div',{class:'al'},lab),v,s),v:v,s:s}}
+  var cStock=card('في المخزن دلوقتي','c-stock'),cRes=card('هيتحجز','c-res'),cLeft=card('هيفضل في المخزن','c-left'),cShort=card('ناقص في الأوردرات','c-short');
+  var covFill=h('i',{class:'acov-f'}),covTxt=h('span',{class:'small-t'});
   var ins=[];
   function delta(){return ins.reduce(function(a,x){return a+(n(x.i.value)-n(x.m.fromStock))},0)}
   function left(){return r3(r.free-delta())}
-  function upd(){var l=left(),d=r3(delta());sum.textContent=(d>=0?'هيتحجز '+fq(d):'هيرجع للمخزن '+fq(-d))+' '+(r.unit||'')+' · هيفضل في المخزن '+fq(l)+' '+(r.unit||'');sum.style.borderColor=l<0?'var(--late)':'var(--ok)';sum.style.color=l<0?'var(--late)':''}
-  var rows=lines.map(function(m){
+  function upd(){
+    var d=r3(delta()),l=left(),shAfter=0;
+    ins.forEach(function(x){
+      var ms=matState(x.m),v=n(x.i.value),rec=r3(ms.rec-n(x.m.fromStock)+v),sh=Math.max(0,r3(ms.req-rec));shAfter+=sh;
+      var pc=ms.req>0?Math.min(100,rec/ms.req*100):0,was=ms.req>0?Math.min(100,(ms.rec-n(x.m.fromStock))/ms.req*100):0;
+      x.bOld.style.width=was+'%';x.bNew.style.width=Math.max(0,pc-was)+'%';x.bNew.style.insetInlineStart=was+'%';
+      x.cov.textContent=fq(rec)+' من '+fq(ms.req)+' متغطي';
+      x.sh.textContent=sh?fq(sh):'✓';x.sh.className='ash'+(sh?'':' done');
+      x.row.classList.toggle('touched',r3(v-n(x.m.fromStock))!==0);
+      x.i.classList.toggle('bad',v<0||v>x.max+1e-9);
+    });
+    cStock.v.textContent=fq(r.free);cStock.s.textContent=U+(hint?' · منهم '+fq(hint)+' وارد دلوقتي':'');
+    cRes.v.textContent=(d<0?'−':'')+fq(Math.abs(d));cRes.s.textContent=U+(d<0?' هيرجع للمخزن':'');
+    cLeft.v.textContent=fq(l);cLeft.s.textContent=U;cLeft.el.classList.toggle('neg',l<0);
+    cShort.v.textContent=fq(shAfter);cShort.s.textContent=U+' بعد الحجز (كان '+fq(totShort)+')';cShort.el.classList.toggle('zero',shAfter<=0);
+    var covered=r3(totShort-shAfter);covFill.style.width=(totShort>0?Math.min(100,covered/totShort*100):100)+'%';
+    covTxt.textContent='الحجز ده بيغطي '+fq(Math.max(0,covered))+' من '+fq(totShort)+' '+U+' ناقصين في الأوردرات';
+    err.textContent=l<-1e-9?'الكمية أكبر من اللي في المخزن بـ '+fq(-l)+' '+U+'.':'';
+  }
+  var body=lines.map(function(m){
     var x=V.by[m.orderId],ms=matState(m),fs=n(m.fromStock),max=r3(fs+ms.sh);
-    var i=h('input',{class:'in',type:'number',min:'0',max:String(max),step:'any',value:fs?String(fs):'',placeholder:'0','aria-label':'الكمية المحجوزة لأوردر '+x.o.no,style:'width:90px',oninput:upd});
-    ins.push({m:m,i:i,max:max});
-    var fill=ms.sh?h('button',{class:'btn small',type:'button',onclick:function(){var cur=n(i.value),room=Math.max(0,left()),need=r3(max-cur);i.value=String(r3(cur+Math.min(need,room)));upd()}},'كمّل الناقص'):null;
-    var tr=row([h('div',null,h('div',{class:'no'},x.o.no),h('div',{class:'small-t'},pj(x.o)||'')),fd(x.o.pdoDate),fq(ms.req),fq(ms.rec),fs?fq(fs):'—',ms.sh?h('b',{class:'num'},fq(ms.sh)):'—',h('div',{class:'bar'},i,fill)]);
-    tr.setAttribute('style',ocStyle(x));tr.className='og';return tr;
+    var i=h('input',{class:'in ain',type:'number',min:'0',max:String(max),step:'any',inputmode:'decimal',value:fs?String(fs):'',placeholder:'0','aria-label':'الكمية المحجوزة لأوردر '+x.o.no,oninput:upd});
+    var o={m:m,i:i,max:max,bOld:h('i',{class:'ab-old'}),bNew:h('i',{class:'ab-new'}),cov:h('span',{class:'num'}),sh:h('b',{class:'ash'})};
+    function fill(){var cur=n(i.value),room=Math.max(0,left()),need=r3(max-cur);i.value=String(r3(cur+Math.min(need,room)));upd()}
+    o.row=h('tr',{class:'og',style:ocStyle(x)},
+      h('td',null,h('div',{class:'no'},x.o.no,' ',dTag(x.o)),h('div',{class:'small-t'},(pj(x.o)||'')+' · '+fd(x.o.pdoDate))),
+      h('td',{class:'nums'},h('b',null,fq(ms.req))),
+      h('td',null,h('div',{class:'abar'},o.bOld,o.bNew),h('div',{class:'small-t'},o.cov,fs?h('span',null,' · منه '+fq(fs)+' من المخزن'):null)),
+      h('td',{class:'nums'},o.sh),
+      h('td',null,h('div',{class:'aqty'},i,h('span',{class:'au'},U))),
+      h('td',null,h('div',{class:'bar',style:'flex-wrap:nowrap'},
+        ms.sh?h('button',{class:'btn small',type:'button',onclick:fill},'كمّل'):null,
+        h('button',{class:'btn small',type:'button','aria-label':'صفّر','title':'صفّر',onclick:function(){i.value='';upd()}},'✕'))));
+    ins.push(o);return o.row;
   });
   function save(){
     var ch=[],bad='';
-    ins.forEach(function(x){var v=n(x.i.value);if(v<0)bad='الكمية مينفعش تكون بالسالب.';if(v>x.max+1e-9)bad='أوردر '+orderOf(x.m.orderId).no+': أقصى حجز '+fq(x.max)+' (على قد الناقص).';var d=r3(v-n(x.m.fromStock));if(d)ch.push({m:x.m,v:v,d:d})});
+    ins.forEach(function(x){var v=n(x.i.value);if(v<0)bad='الكمية مينفعش تكون بالسالب.';if(v>x.max+1e-9)bad='أوردر '+orderOf(x.m.orderId).no+': أقصى حجز '+fq(x.max)+' '+U+' (على قد الناقص).';var d=r3(v-n(x.m.fromStock));if(d)ch.push({m:x.m,v:v,d:d})});
     if(bad){err.textContent=bad;return}
-    if(left()<-1e-9){err.textContent='المخزن مش مكفي. المتاح '+fq(r.free)+' بس.';return}
+    if(left()<-1e-9){err.textContent='المخزن مش مكفي. المتاح '+fq(r.free)+' '+U+' بس.';return}
     if(!ch.length){closeModal();return}
-    var tot=0,nos=[];
-    ch.forEach(function(c){var m=Object.assign({},c.m),o=orderOf(m.orderId);m.fromStock=c.v;m.received=r3(n(m.received)+c.d);m.receipts=(m.receipts||[]).concat([{date:today(),qty:c.d,src:'store'}]);persist('mats',m);tot+=c.d;nos.push((o?o.no:'؟')+' '+(c.d>0?'+':'')+fq(c.d))});
+    var tot=0;
+    ch.forEach(function(c){var m=Object.assign({},c.m);m.fromStock=c.v;m.received=r3(n(m.received)+c.d);m.receipts=(m.receipts||[]).concat([{date:today(),qty:c.d,src:'store'}]);persist('mats',m);tot+=c.d});
     var s=stockDoc(r.code,r.name,r.unit);s.qty=r3(n(s.qty)-tot);
     ch.forEach(function(c){var o=orderOf(c.m.orderId);s.moves.push({t:c.d>0?'alloc':'rel',qty:-c.d,date:today(),at:new Date().toISOString(),orderId:c.m.orderId,orderNo:o?o.no:'',matId:c.m.id})});
     persist('stock',s);closeModal();
-    notice('');
   }
-  openModal('حجز من المخزن — '+r.code,h('div',null,
-    h('div',{class:'small-t'},(r.name||'')+' — في المخزن حر '+fq(r.free)+' '+(r.unit||'')+(hint?' (منهم '+fq(hint)+' وارد دلوقتي)':'')),
-    h('div',{class:'small-t',style:'margin-top:4px'},'اكتب كام تحجز لكل أوردر حسب الأولوية. تقدر تقلل الرقم عشان ترجّع كمية للمخزن.'),
-    tbl(['الأوردر','تاريخ الأوردر','المطلوب','المتوفر','منه من المخزن','الناقص','محجوز من المخزن'],rows,720),
-    sum,err,
+  var t=h('table',{class:'atbl'},
+    h('thead',null,h('tr',null,['الأوردر','المطلوب','التغطية بعد الحجز','الناقص بعده','كمية الحجز',''].map(function(c){return h('th',null,c)}))),
+    h('tbody',null,body));
+  openModal('حجز من المخزن',h('div',null,
+    h('div',{class:'ahead'},h('b',{class:'num'},r.code),h('span',null,r.name||''),r.multiUnit?flag('وحدات مختلفة: '+Object.keys(r.units).join(' / '),'late'):null),
+    h('div',{class:'acards'},cStock.el,cRes.el,cLeft.el,cShort.el),
+    h('div',{class:'acov'},h('div',{class:'acov-t'},covFill),covTxt),
+    h('div',{class:'small-t',style:'margin:12px 0 6px'},'اكتب كمية الحجز لكل أوردر حسب الأولوية، أو اضغط "كمّل" يكمّل ناقصه من اللي فاضل. تقليل الرقم بيرجّع الفرق للمخزن.'),
+    h('div',{class:'tablebox'},t),
+    err,
     h('div',{class:'actions'},h('button',{class:'btn primary',type:'button',onclick:save},'حفظ الحجز'),h('button',{class:'btn',type:'button',onclick:closeModal},'إغلاق'))),true);
   upd();
+  setTimeout(function(){if(ins[0])ins[0].i.focus()},40);
 }
 
 function nextDn(){
@@ -2398,6 +2450,8 @@ Object.assign(DICT,{"مجدول": "Scheduled", "تقديري — محتاج مي
 Object.assign(DICT,{"في الميعاد · بيخلص يوم التسليم": "On time · finishes on delivery day", "الخامات الناقصة مالهاش ميعاد وصول": "Missing materials have no arrival date"});
 Object.assign(DICT,{"القسم": "Division", "حديد": "Steel", "التقرير والـ PDF والـ Excel بيطلعوا للقسم اللي مختاره.": "The report, PDF and Excel follow the selected division."});
 Object.assign(DICT,{"إنتاج حديد": "Steel production", "تصنيع براكت": "Bracket manufacturing"});
+Object.assign(DICT,{"في المخزن دلوقتي": "In store now", "هيفضل في المخزن": "Left in store", "ناقص في الأوردرات": "Short in orders", "بعد الحجز (كان": "after reserving (was", "التغطية بعد الحجز": "Coverage after reserving", "الناقص بعده": "Short after", "كمية الحجز": "Reserve qty", "كمّل": "Fill", "الحجز ده بيغطي": "This reservation covers", "ناقصين في الأوردرات": "short in orders", "منه": "of which", "وحدات مختلفة:": "Mixed units:", "الكمية أكبر من اللي في المخزن بـ": "Quantity exceeds the store by"});
+Object.assign(DICT,{"متغطي":"covered"});
 Object.assign(DICT,{"المخزن": "Store", "في المخزن": "In store", "مطلوب للأوردرات": "Needed by orders", "متوفر للأوردرات": "Covered for orders", "ناقص في الأوردرات": "Short in orders", "بعد المخزن": "After store", "حجز لأوردر": "Reserve for order", "حجز من المخزن": "Reserve from store", "من المخزن": "From store", "+ وارد": "+ Stock in", "جرد": "Count", "الحركة": "Move", "+ خامة للمخزن": "+ Store material", "خامة جديدة للمخزن": "New store material", "الرصيد الموجود دلوقتي": "Quantity on hand now", "وارد للمخزن": "Stock in", "الكمية الواردة": "Quantity in", "تاريخ الوارد": "Date in", "حفظ وروح للحجز": "Save and reserve", "جرد المخزن": "Store count", "الموجود فعلًا (من غير المحجوز للأوردرات)": "Actual on hand (excluding reserved)", "حركة المخزن": "Store moves", "رصيد أول": "Opening balance", "فك حجز": "Unreserve", "رجوع للمخزن": "Returned to store", "جرد / تسوية": "Count / adjustment", "حفظ الحجز": "Save reservation", "محجوز من المخزن": "Reserved from store", "منه من المخزن": "Of which from store", "كمّل الناقص": "Fill shortage", "ممكن تحجز منها": "Can reserve", "محتاج شراء": "Need to buy", "موجود في المخزن": "In stock", "خامات في الشيت": "Materials", "ممكن تحجز منها دلوقتي": "Can reserve now", "المخزن فاضي": "Store is empty", "ناقص — محتاج شراء": "Short — need to buy", "المخزن يكفي — احجز": "Store covers it — reserve", "المخزن يكفي جزء": "Store covers part", "الأوردرات مكتملة": "Orders covered", "مش مطلوبة دلوقتي": "Not needed now", "ناقص في:": "Short in:", "يفضل": "left", "هيتحجز": "Will reserve", "هيرجع للمخزن": "Will return to store", "هيفضل في المخزن": "Left in store", "دور بالكود أو اسم الخامة": "Search code or material name", "مفيش حركة لسه": "No moves yet", "مسح أوردر": "Order deleted", "مسح خامة من أوردر": "Material removed from order", "المخزن مش مكفي. المتاح": "Not enough in store. Available"});
 var LET=/[ء-ي]/,AR=/[؀-ۿ]/;
 var keys=Object.keys(DICT).sort(function(a,b){return b.length-a.length});
