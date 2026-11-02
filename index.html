@@ -809,7 +809,7 @@ function matRow(m,st){
     h('td',{class:'nums'},ms.sh?(m.expected?fd(m.expected):'—'):'—'),
     h('td',null,reqPill(m)),
     h('td',null,h('div',{class:'bar'},
-      (ms.sh&&stockFree(m.code)>0&&isOpenMat(m))?h('button',{class:'btn small primary',type:'button',onclick:function(){openAlloc(m.code)}},'من المخزن'):null,
+      (ms.sh&&isOpenMat(m)&&stockFree(m.code,matDiv(m))>0)?h('button',{class:'btn small primary',type:'button',onclick:function(){openAlloc(m.code,matDiv(m))}},'من المخزن'):null,
       ms.sh?h('button',{class:'btn small',type:'button',onclick:function(){openReceive(m)}},'استلام'):null,
       ms.sh?h('button',{class:'btn small',type:'button',onclick:function(){openRequest(m)}},m.reqDate?'تعديل الطلب':'سجّل الطلب'):null,
       h('button',{class:'btn small',type:'button',onclick:function(){openMat(m)}},'تعديل'),
@@ -859,7 +859,7 @@ function vPurchase(){
     var m=r.m,o=r.x?r.x.o:null;
     var tr=row([o?h('div',null,h('div',{class:'no'},o.no),h('div',{class:'small-t'},pj(o)||'')):'عام',o?(o.site||'—'):'—',m.code||'—',h('div',{class:'cust'},m.name),m.unit||'—',
       fq(r.ms.req),fq(r.ms.rec),stockCell(m),h('b',{class:'num'},fq(r.ms.sh)),m.reqDate?fd(m.reqDate):flag('لم يُطلب','late'),m.expected?fd(m.expected):'—',reqPill(m),
-      h('div',{class:'bar'},(stockFree(m.code)>0&&r.x)?h('button',{class:'btn small primary',type:'button',onclick:function(){openAlloc(m.code)}},'من المخزن'):null,h('button',{class:'btn small',type:'button',onclick:function(){openRequest(m)}},m.reqDate?'تعديل الطلب':'سجّل الطلب'),h('button',{class:'btn small',type:'button',onclick:function(){openReceive(m)}},'استلام'))]);
+      h('div',{class:'bar'},(r.x&&stockFree(m.code,matDiv(m))>0)?h('button',{class:'btn small primary',type:'button',onclick:function(){openAlloc(m.code,matDiv(m))}},'من المخزن'):null,h('button',{class:'btn small',type:'button',onclick:function(){openRequest(m)}},m.reqDate?'تعديل الطلب':'سجّل الطلب'),h('button',{class:'btn small',type:'button',onclick:function(){openReceive(m)}},'استلام'))]);
     if(r.x)tr.setAttribute('style',ocStyle(r.x)),tr.className='og';
     return tr;
   }),1180);
@@ -897,37 +897,45 @@ THG['g-prod']=THG['g-prod'].concat(['في المخزن','مطلوب للأورد
 var MVL={first:'رصيد أول',in:'وارد للمخزن',alloc:'حجز لأوردر',rel:'فك حجز',ret:'رجوع للمخزن',adj:'جرد / تسوية'};
 function sk(c){return String(c==null?'':c).trim()}
 function r3(v){return Math.round(v*1000)/1000}
-function stockOf(code){code=sk(code);return code?(D.stock||[]).filter(function(s){return sk(s.code)===code})[0]||null:null}
-function stockFree(code){var s=stockOf(code);return s?n(s.qty):0}
-function stockCell(m){if(!sk(m.code))return '—';var s=stockOf(m.code);return s?(n(s.qty)>0?h('b',{class:'num',style:'color:var(--ok)'},fq(s.qty)):'0'):h('span',{class:'small-t'},'—')}
-function stockDoc(code,name,unit){
-  var s=stockOf(code);
-  return s?Object.assign({},s,{moves:(s.moves||[]).slice()}):{id:'st'+sk(code).replace(/[^\w-]/g,'_'),code:sk(code),name:name||'',unit:unit||'',qty:0,moves:[],createdAt:new Date().toISOString()};
+/* each division (steel / bracket) has its own store: a stock doc belongs to one division */
+function matDiv(m){return divOf(orderOf(m.orderId))}
+function sDiv(s){
+  if(s.division)return s.division;
+  var k=sk(s.code),ds={};D.mats.forEach(function(m){if(sk(m.code)===k&&orderOf(m.orderId))ds[matDiv(m)]=1});
+  return (ds.bracket&&!ds.steel)?'bracket':'steel';
+}
+function stockOf(code,div){code=sk(code);div=div||'steel';return code?(D.stock||[]).filter(function(s){return sk(s.code)===code&&sDiv(s)===div})[0]||null:null}
+function stockFree(code,div){var s=stockOf(code,div);return s?n(s.qty):0}
+function stockCell(m){if(!sk(m.code))return '—';var s=stockOf(m.code,matDiv(m));return s?(n(s.qty)>0?h('b',{class:'num',style:'color:var(--ok)'},fq(s.qty)):'0'):h('span',{class:'small-t'},'—')}
+function stockDoc(code,div,name,unit){
+  div=div||'steel';var s=stockOf(code,div);
+  return s?Object.assign({},s,{division:sDiv(s),moves:(s.moves||[]).slice()}):{id:(div==='bracket'?'stB_':'st')+sk(code).replace(/[^\w-]/g,'_'),code:sk(code),division:div,name:name||'',unit:unit||'',qty:0,moves:[],createdAt:new Date().toISOString()};
 }
 /* one write per code per action, so two quick changes never overwrite each other */
-function moveStock(code,name,unit,delta,mv){
-  var s=stockDoc(code,name,unit);s.qty=r3(n(s.qty)+delta);
+function moveStock(code,div,name,unit,delta,mv){
+  var s=stockDoc(code,div,name,unit);s.qty=r3(n(s.qty)+delta);
   if(!s.name&&name)s.name=name;if(!s.unit&&unit)s.unit=unit;
   mv.qty=r3(delta);mv.date=mv.date||today();mv.at=new Date().toISOString();s.moves.push(mv);
   return persist('stock',s);
 }
 function returnToStock(list,why){
   var g={};
-  (list||[]).forEach(function(m){var q=n(m.fromStock);if(!(q>0)||!sk(m.code))return;var k=sk(m.code);(g[k]||(g[k]={m:m,q:0,o:[]})).q+=q;var o=orderOf(m.orderId);if(o)g[k].o.push(o.no)});
-  Object.keys(g).forEach(function(k){var x=g[k];moveStock(k,x.m.name,x.m.unit,x.q,{t:'ret',note:why+(x.o.length?' — '+x.o.join(', '):'')})});
+  (list||[]).forEach(function(m){var q=n(m.fromStock);if(!(q>0)||!sk(m.code))return;var d=matDiv(m),k=d+'|'+sk(m.code);(g[k]||(g[k]={m:m,d:d,q:0,o:[]})).q+=q;var o=orderOf(m.orderId);if(o)g[k].o.push(o.no)});
+  Object.keys(g).forEach(function(k){var x=g[k];moveStock(x.m.code,x.d,x.m.name,x.m.unit,x.q,{t:'ret',note:why+(x.o.length?' — '+x.o.join(', '):'')})});
 }
 function removeMat(m){returnToStock([m],'مسح خامة من أوردر');remove('mats',m.id)}
 function isOpenMat(m){var x=V.by[m.orderId];return !!x&&!x.closed}
 function storeRows(){
   var by={};
-  function g(code,name,unit){var k=sk(code),r=by[k]||(by[k]={code:k,name:'',unit:'',s:null,req:0,rec:0,sh:0,lines:[],units:{}});if(!r.name&&name)r.name=name;if(!r.unit&&unit)r.unit=unit;return r}
-  (D.stock||[]).forEach(function(s){if(!sk(s.code))return;var r=g(s.code,s.name,s.unit);r.s=s;if(s.name)r.name=s.name;if(s.unit)r.unit=s.unit;if(s.unit)r.units[sk(s.unit).toUpperCase()]=1});
-  D.mats.forEach(function(m){if(!sk(m.code)||!isOpenMat(m))return;var r=g(m.code,m.name,m.unit),ms=matState(m);
+  function g(code,div,name,unit){var k=div+'|'+sk(code),r=by[k]||(by[k]={code:sk(code),div:div,name:'',unit:'',s:null,req:0,rec:0,sh:0,lines:[],units:{}});if(!r.name&&name)r.name=name;if(!r.unit&&unit)r.unit=unit;return r}
+  (D.stock||[]).forEach(function(s){if(!sk(s.code))return;var r=g(s.code,sDiv(s),s.name,s.unit);r.s=s;if(s.name)r.name=s.name;if(s.unit)r.unit=s.unit;if(s.unit)r.units[sk(s.unit).toUpperCase()]=1});
+  D.mats.forEach(function(m){if(!sk(m.code)||!isOpenMat(m))return;var r=g(m.code,matDiv(m),m.name,m.unit),ms=matState(m);
     r.req+=ms.req;r.rec+=Math.min(ms.rec,ms.req);r.sh+=ms.sh;r.lines.push(m);if(m.unit)r.units[sk(m.unit).toUpperCase()]=1});
   return Object.keys(by).map(function(k){var r=by[k];r.free=r.s?n(r.s.qty):0;r.net=r3(r.free-r.sh);r.multiUnit=Object.keys(r.units).length>1;return r})
-    .sort(function(a,b){var x=a.net<0?0:(a.sh>0?1:2),y=b.net<0?0:(b.sh>0?1:2);return x-y||a.code.localeCompare(b.code,undefined,{numeric:true})});
+    .sort(function(a,b){var x=a.net<0?0:(a.sh>0?1:2),y=b.net<0?0:(b.sh>0?1:2);return (a.div===b.div?0:(a.div==='bracket'?1:-1))||x-y||a.code.localeCompare(b.code,undefined,{numeric:true})});
 }
-function storeRowOf(code){return storeRows().filter(function(r){return r.code===sk(code)})[0]||null}
+function storeRowOf(code,div){div=div||'steel';return storeRows().filter(function(r){return r.code===sk(code)&&r.div===div})[0]||null}
+function dvTag(div){return h('span',{class:'dtag '+(div==='bracket'?'br':'st')},div==='bracket'?'BRACKET':'حديد')}
 function storePill(r){
   if(r.sh<=0)return colorPill(r.lines.length?'الأوردرات مكتملة':'مش مطلوبة دلوقتي',r.lines.length?'var(--s-ready)':'var(--s-cancel)');
   if(r.free<=0)return colorPill('ناقص — محتاج شراء','var(--late)');
@@ -939,7 +947,7 @@ function shortWhere(r){
   return p.length?h('div',{class:'small-t'},'ناقص في: '+p.join(' · ')):null;
 }
 function vStore(){
-  var all=storeRows(),q=(S.sq||'').trim().toLowerCase();
+  var all=storeRows().filter(function(r){return S.dv==='all'||r.div===S.dv}),q=(S.sq||'').trim().toLowerCase();
   var rows=all.filter(function(r){
     if(S.sf==='short'&&!(r.net<0))return false;
     if(S.sf==='alloc'&&!(r.sh>0&&r.free>0))return false;
@@ -948,15 +956,23 @@ function vStore(){
   });
   var nShort=all.filter(function(r){return r.net<0}).length,nAlloc=all.filter(function(r){return r.sh>0&&r.free>0}).length,nHave=all.filter(function(r){return r.free>0}).length;
   var chips=[['all','الكل ('+all.length+')'],['alloc','ممكن تحجز منها ('+nAlloc+')'],['short','محتاج شراء ('+nShort+')'],['have','موجود في المخزن ('+nHave+')']];
+  var whName=S.dv==='bracket'?'مخزن BRACKET':(S.dv==='steel'?'مخزن الحديد':'المخزنين');
+  var dvb=h('div',{class:'bar',style:'margin-bottom:8px'},h('span',{class:'small-t'},'المخزن:'),
+    [['all','الكل'],['steel','مخزن الحديد'],['bracket','مخزن BRACKET']].map(function(c){return h('button',{class:'chip',type:'button','aria-pressed':String(S.dv===c[0]),onclick:function(){S.dv=c[0];render()}},c[1])}),
+    h('span',{class:'small-t'},'كل قسم ليه مخزنه وخاماته، وأوردرات القسم بتحجز من مخزنه بس.'));
   var bar=h('div',{class:'bar'},
     chips.map(function(c){return h('button',{class:'chip',type:'button','aria-pressed':String((S.sf||'all')===c[0]),onclick:function(){S.sf=c[0];render()}},c[1])}),
     h('input',{class:'in grow',id:'sq',type:'search',placeholder:'دور بالكود أو اسم الخامة',value:S.sq||'','aria-label':'بحث',oninput:function(e){S.sq=e.target.value;render('sq')}}),
     h('button',{class:'btn primary',type:'button',onclick:function(){openStockNew()}},'+ خامة للمخزن'));
   var info=h('div',{class:'small-t',style:'margin:6px 0 10px'},'"في المخزن" = الكمية الحرة اللي لسه محدش حجزها. الحجز يدوي حسب الأولوية: اضغط "حجز لأوردر" واكتب كام لكل أوردر. اللي بيتحجز بيتخصم من المخزن ويتضاف للمتوفر في شيت الخامات.');
-  if(!rows.length)return [bar,info,empty(all.length?'مفيش خامات بالفلتر ده':'المخزن فاضي','الخامات اللي في الأوردرات بتظهر هنا لوحدها بالكود. ضيف رصيدك من زرار "+ خامة للمخزن" أو "+ وارد".')];
+  var tiles=h('div',{class:'tiles',style:'margin-bottom:10px'},
+      tile('خامات في '+whName,String(all.length),null,'info'),
+      tile('ممكن تحجز منها دلوقتي',String(nAlloc),'المخزن فيه منها وفي أوردرات ناقصاها','ok'),
+      tile('محتاج شراء',String(nShort),'حتى بعد اللي في المخزن',nShort?'late':'ok'));
+  if(!rows.length)return [dvb,tiles,bar,info,empty(all.length?'مفيش خامات بالفلتر ده':'المخزن فاضي','الخامات اللي في الأوردرات بتظهر هنا لوحدها بالكود. ضيف رصيدك من زرار "+ خامة للمخزن" أو "+ وارد".')];
   var t=tbl(['كود الخامة','الخامة','الوحدة','في المخزن','مطلوب للأوردرات','متوفر للأوردرات','ناقص في الأوردرات','بعد المخزن','الحالة',''],rows.map(function(r){
-    return row([
-      h('b',{class:'num'},r.code),
+    var tr=row([
+      h('div',null,h('b',{class:'num'},r.code),h('div',null,dvTag(r.div))),
       h('div',null,h('div',{class:'cust'},r.name||'—'),shortWhere(r),r.multiUnit?flag('الكود ده متسجل بأكتر من وحدة: '+Object.keys(r.units).join(' / '),'late'):null),
       r.unit||'—',
       h('b',{class:'num',style:r.free>0?'color:var(--ok)':''},fq(r.free)),
@@ -964,67 +980,65 @@ function vStore(){
       r.sh?(r.net<0?h('b',{class:'num',style:'color:var(--late)'},'ناقص '+fq(-r.net)):h('span',{class:'num',style:'color:var(--ok)'},'يفضل '+fq(r.net))):(r.free>0?h('span',{class:'num'},'يفضل '+fq(r.free)):'—'),
       storePill(r),
       h('div',{class:'bar'},
-        (r.lines.length&&(r.free>0||r.lines.some(function(m){return n(m.fromStock)>0})))?h('button',{class:'btn small primary',type:'button',onclick:function(){openAlloc(r.code)}},'حجز لأوردر'):null,
+        (r.lines.length&&(r.free>0||r.lines.some(function(m){return n(m.fromStock)>0})))?h('button',{class:'btn small primary',type:'button',onclick:function(){openAlloc(r.code,r.div)}},'حجز لأوردر'):null,
         h('button',{class:'btn small',type:'button',onclick:function(){openStockIn(r)}},'+ وارد'),
         h('button',{class:'btn small',type:'button',onclick:function(){openStockCount(r)}},'جرد'),
-        r.s?h('button',{class:'btn small',type:'button',onclick:function(){openStockLog(r.code)}},'الحركة'):null,
+        r.s?h('button',{class:'btn small',type:'button',onclick:function(){openStockLog(r.code,r.div)}},'الحركة'):null,
         r.s&&!r.lines.length&&!(r.free>0)?delBtn('مسح',function(){remove('stock',r.s.id)}):null)
-    ]);
+    ],r.div==='bracket'?'rowbr':'');
+    return tr;
   }),1250);
-  return [
-    h('div',{class:'tiles',style:'margin-bottom:10px'},
-      tile('خامات في الشيت',String(all.length),null,'info'),
-      tile('ممكن تحجز منها دلوقتي',String(nAlloc),'المخزن فيه منها وفي أوردرات ناقصاها','ok'),
-      tile('محتاج شراء',String(nShort),'حتى بعد اللي في المخزن',nShort?'late':'ok')),
-    bar,info,t];
+  return [dvb,tiles,bar,info,t];
 }
 function openStockNew(){
-  var err=h('div',{class:'msg',role:'alert'}),c=inp('sn-c','text',''),nm=inp('sn-n','text',''),u=inp('sn-u','text','PCS'),q=inp('sn-q','number','',{min:'0',step:'any'});
-  c.addEventListener('change',function(){var k=sk(c.value),m=D.mats.filter(function(x){return sk(x.code)===k})[0];if(m){if(!nm.value)nm.value=m.name||'';if(m.unit)u.value=m.unit}});
+  var err=h('div',{class:'msg',role:'alert'}),c=inp('sn-c','text',''),nm=inp('sn-n','text',''),u=inp('sn-u','text','PCS'),q=inp('sn-q','number','',{min:'0',step:'any'}),
+      dv=sel('sn-d',[['steel','مخزن الحديد'],['bracket','مخزن BRACKET']],S.dv==='bracket'?'bracket':'steel');
+  c.addEventListener('change',function(){var k=sk(c.value),m=D.mats.filter(function(x){return sk(x.code)===k})[0];if(m){if(!nm.value)nm.value=m.name||'';if(m.unit)u.value=m.unit;if(orderOf(m.orderId))dv.value=matDiv(m)}});
   openModal('خامة جديدة للمخزن',h('div',null,
-    h('div',{class:'grid'},fld('كود الخامة',c),fld('الوحدة',u),fld('الخامة',nm,true),fld('الرصيد الموجود دلوقتي',q)),err,
+    h('div',{class:'grid'},fld('المخزن (القسم)',dv),fld('كود الخامة',c),fld('الخامة',nm,true),fld('الوحدة',u),fld('الرصيد الموجود دلوقتي',q)),err,
     h('div',{class:'actions'},h('button',{class:'btn primary',type:'button',onclick:function(){
       var k=sk(c.value);if(!k){err.textContent='اكتب كود الخامة.';return}
-      if(stockOf(k)){err.textContent='الكود ده موجود في المخزن. استخدم "+ وارد" أو "جرد".';return}
+      if(stockOf(k,dv.value)){err.textContent='الكود ده موجود في المخزن ده. استخدم "+ وارد" أو "جرد".';return}
       if(!nm.value.trim()){err.textContent='اكتب اسم الخامة.';return}
-      moveStock(k,nm.value.trim(),u.value.trim(),n(q.value),{t:'first'});closeModal();
+      moveStock(k,dv.value,nm.value.trim(),u.value.trim(),n(q.value),{t:'first'});closeModal();
     }},'حفظ'),h('button',{class:'btn',type:'button',onclick:closeModal},'إغلاق'))));
   setTimeout(function(){c.focus()},30);
 }
+function whOf(r){return r.div==='bracket'?'مخزن BRACKET':'مخزن الحديد'}
 function openStockIn(r){
   var err=h('div',{class:'msg',role:'alert'}),q=inp('si-q','number','',{min:'0',step:'any'}),d=inp('si-d','date',today()),nt=inp('si-n','text','',{placeholder:'المورد / رقم الإذن (اختياري)'});
-  openModal('وارد للمخزن',h('div',null,h('div',{class:'small-t'},r.code+' · '+(r.name||'')+' — في المخزن دلوقتي '+fq(r.free)+' '+(r.unit||'')+(r.sh?' · ناقص في الأوردرات '+fq(r.sh):'')),
+  openModal('وارد ل'+whOf(r),h('div',null,h('div',{class:'small-t'},r.code+' · '+(r.name||'')+' — في المخزن دلوقتي '+fq(r.free)+' '+(r.unit||'')+(r.sh?' · ناقص في الأوردرات '+fq(r.sh):'')),
     h('div',{class:'grid',style:'margin-top:10px'},fld('الكمية الواردة',q),fld('تاريخ الوارد',d),fld('ملاحظة',nt,true)),err,
     h('div',{class:'small-t'},'الوارد بيدخل المخزن حر. بعد كده احجز منه للأوردرات اللي ليها الأولوية.'),
     h('div',{class:'actions'},h('button',{class:'btn primary',type:'button',onclick:function(){
       var v=n(q.value);if(!(v>0)){err.textContent='اكتب الكمية الواردة.';return}
-      moveStock(r.code,r.name,r.unit,v,{t:'in',date:d.value||today(),note:nt.value.trim()});closeModal();
-      if(r.sh>0)setTimeout(function(){openAlloc(r.code,v)},60);
+      moveStock(r.code,r.div,r.name,r.unit,v,{t:'in',date:d.value||today(),note:nt.value.trim()});closeModal();
+      if(r.sh>0)setTimeout(function(){openAlloc(r.code,r.div,v)},60);
     }},r.sh>0?'حفظ وروح للحجز':'حفظ'),h('button',{class:'btn',type:'button',onclick:closeModal},'إغلاق'))));
   setTimeout(function(){q.focus()},30);
 }
 function openStockCount(r){
   var err=h('div',{class:'msg',role:'alert'}),q=inp('sc-q','number',r.free,{min:'0',step:'any'}),nt=inp('sc-n','text','',{placeholder:'سبب الفرق (اختياري)'});
-  openModal('جرد المخزن',h('div',null,h('div',{class:'small-t'},r.code+' · '+(r.name||'')+' — السيستم بيقول في المخزن '+fq(r.free)+' '+(r.unit||'')),
+  openModal('جرد '+whOf(r),h('div',null,h('div',{class:'small-t'},r.code+' · '+(r.name||'')+' — السيستم بيقول في المخزن '+fq(r.free)+' '+(r.unit||'')),
     h('div',{class:'grid',style:'margin-top:10px'},fld('الموجود فعلًا (من غير المحجوز للأوردرات)',q),fld('ملاحظة',nt)),err,
     h('div',{class:'actions'},h('button',{class:'btn primary',type:'button',onclick:function(){
       if(q.value===''||n(q.value)<0){err.textContent='اكتب الرصيد الفعلي.';return}
       var dlt=r3(n(q.value)-r.free);if(!dlt){closeModal();return}
-      moveStock(r.code,r.name,r.unit,dlt,{t:'adj',note:nt.value.trim()});closeModal();
+      moveStock(r.code,r.div,r.name,r.unit,dlt,{t:'adj',note:nt.value.trim()});closeModal();
     }},'حفظ'),h('button',{class:'btn',type:'button',onclick:closeModal},'إغلاق'))));
   setTimeout(function(){q.focus();q.select()},30);
 }
-function openStockLog(code){
-  var s=stockOf(code);if(!s)return;
+function openStockLog(code,div){
+  var s=stockOf(code,div);if(!s)return;
   var mv=(s.moves||[]).slice().reverse();
-  openModal('حركة المخزن — '+s.code,h('div',null,h('div',{class:'small-t'},(s.name||'')+' — في المخزن دلوقتي '+fq(s.qty)+' '+(s.unit||'')),
+  openModal('حركة المخزن — '+s.code,h('div',null,h('div',{class:'small-t'},dvTag(sDiv(s)),' '+(s.name||'')+' — في المخزن دلوقتي '+fq(s.qty)+' '+(s.unit||'')),
     mv.length?tbl(['التاريخ','الحركة','الكمية','الأوردر','ملاحظة'],mv.map(function(x){var o=x.orderId?orderOf(x.orderId):null;
       return row([fd(x.date),MVL[x.t]||x.t,h('b',{class:'num',style:'color:'+(n(x.qty)<0?'var(--late)':'var(--ok)')},(n(x.qty)>0?'+':'')+fq(x.qty)),o?o.no+' · '+(pj(o)||''):(x.orderNo||'—'),x.note||'—'])}),600):empty('مفيش حركة لسه',''),
     h('div',{class:'actions'},h('button',{class:'btn',type:'button',onclick:closeModal},'إغلاق'))),true);
 }
 /* manual reservation by priority: you decide how much each order gets */
-function openAlloc(code,hint){
-  var r=storeRowOf(code);if(!r)return;
+function openAlloc(code,div,hint){
+  var r=storeRowOf(code,div);if(!r)return;
   var U=r.unit||'',err=h('div',{class:'msg',role:'alert'});
   var lines=r.lines.slice().sort(function(a,b){var x=V.by[a.orderId],y=V.by[b.orderId];return (x.o.pdoDate||'').localeCompare(y.o.pdoDate||'')||byNo(x.o,y.o)});
   var totShort=lines.reduce(function(a,m){return a+matState(m).sh},0);
@@ -1077,15 +1091,15 @@ function openAlloc(code,hint){
     if(!ch.length){closeModal();return}
     var tot=0;
     ch.forEach(function(c){var m=Object.assign({},c.m);m.fromStock=c.v;m.received=r3(n(m.received)+c.d);m.receipts=(m.receipts||[]).concat([{date:today(),qty:c.d,src:'store'}]);persist('mats',m);tot+=c.d});
-    var s=stockDoc(r.code,r.name,r.unit);s.qty=r3(n(s.qty)-tot);
+    var s=stockDoc(r.code,r.div,r.name,r.unit);s.qty=r3(n(s.qty)-tot);
     ch.forEach(function(c){var o=orderOf(c.m.orderId);s.moves.push({t:c.d>0?'alloc':'rel',qty:-c.d,date:today(),at:new Date().toISOString(),orderId:c.m.orderId,orderNo:o?o.no:'',matId:c.m.id})});
     persist('stock',s);closeModal();
   }
   var t=h('table',{class:'atbl'},
     h('thead',null,h('tr',null,['الأوردر','المطلوب','التغطية بعد الحجز','الناقص بعده','كمية الحجز',''].map(function(c){return h('th',null,c)}))),
     h('tbody',null,body));
-  openModal('حجز من المخزن',h('div',null,
-    h('div',{class:'ahead'},h('b',{class:'num'},r.code),h('span',null,r.name||''),r.multiUnit?flag('وحدات مختلفة: '+Object.keys(r.units).join(' / '),'late'):null),
+  openModal('حجز من '+whOf(r),h('div',null,
+    h('div',{class:'ahead'},dvTag(r.div),h('b',{class:'num'},r.code),h('span',null,r.name||''),r.multiUnit?flag('وحدات مختلفة: '+Object.keys(r.units).join(' / '),'late'):null),
     h('div',{class:'acards'},cStock.el,cRes.el,cLeft.el,cShort.el),
     h('div',{class:'acov'},h('div',{class:'acov-t'},covFill),covTxt),
     h('div',{class:'small-t',style:'margin:12px 0 6px'},'اكتب كمية الحجز لكل أوردر حسب الأولوية، أو اضغط "كمّل" يكمّل ناقصه من اللي فاضل. تقليل الرقم بيرجّع الفرق للمخزن.'),
@@ -2452,6 +2466,7 @@ Object.assign(DICT,{"القسم": "Division", "حديد": "Steel", "التقري
 Object.assign(DICT,{"إنتاج حديد": "Steel production", "تصنيع براكت": "Bracket manufacturing"});
 Object.assign(DICT,{"في المخزن دلوقتي": "In store now", "هيفضل في المخزن": "Left in store", "ناقص في الأوردرات": "Short in orders", "بعد الحجز (كان": "after reserving (was", "التغطية بعد الحجز": "Coverage after reserving", "الناقص بعده": "Short after", "كمية الحجز": "Reserve qty", "كمّل": "Fill", "الحجز ده بيغطي": "This reservation covers", "ناقصين في الأوردرات": "short in orders", "منه": "of which", "وحدات مختلفة:": "Mixed units:", "الكمية أكبر من اللي في المخزن بـ": "Quantity exceeds the store by"});
 Object.assign(DICT,{"متغطي":"covered"});
+Object.assign(DICT,{"مخزن الحديد": "Steel store", "مخزن BRACKET": "BRACKET store", "المخزنين": "both stores", "المخزن:": "Store:", "المخزن (القسم)": "Store (division)", "خامات في": "Materials in", "كل قسم ليه مخزنه وخاماته، وأوردرات القسم بتحجز من مخزنه بس.": "Each division has its own store and materials; its orders reserve from its own store only.", "وارد ل": "Stock in to ", "جرد": "Count", "حجز من": "Reserve from"});
 Object.assign(DICT,{"المخزن": "Store", "في المخزن": "In store", "مطلوب للأوردرات": "Needed by orders", "متوفر للأوردرات": "Covered for orders", "ناقص في الأوردرات": "Short in orders", "بعد المخزن": "After store", "حجز لأوردر": "Reserve for order", "حجز من المخزن": "Reserve from store", "من المخزن": "From store", "+ وارد": "+ Stock in", "جرد": "Count", "الحركة": "Move", "+ خامة للمخزن": "+ Store material", "خامة جديدة للمخزن": "New store material", "الرصيد الموجود دلوقتي": "Quantity on hand now", "وارد للمخزن": "Stock in", "الكمية الواردة": "Quantity in", "تاريخ الوارد": "Date in", "حفظ وروح للحجز": "Save and reserve", "جرد المخزن": "Store count", "الموجود فعلًا (من غير المحجوز للأوردرات)": "Actual on hand (excluding reserved)", "حركة المخزن": "Store moves", "رصيد أول": "Opening balance", "فك حجز": "Unreserve", "رجوع للمخزن": "Returned to store", "جرد / تسوية": "Count / adjustment", "حفظ الحجز": "Save reservation", "محجوز من المخزن": "Reserved from store", "منه من المخزن": "Of which from store", "كمّل الناقص": "Fill shortage", "ممكن تحجز منها": "Can reserve", "محتاج شراء": "Need to buy", "موجود في المخزن": "In stock", "خامات في الشيت": "Materials", "ممكن تحجز منها دلوقتي": "Can reserve now", "المخزن فاضي": "Store is empty", "ناقص — محتاج شراء": "Short — need to buy", "المخزن يكفي — احجز": "Store covers it — reserve", "المخزن يكفي جزء": "Store covers part", "الأوردرات مكتملة": "Orders covered", "مش مطلوبة دلوقتي": "Not needed now", "ناقص في:": "Short in:", "يفضل": "left", "هيتحجز": "Will reserve", "هيرجع للمخزن": "Will return to store", "هيفضل في المخزن": "Left in store", "دور بالكود أو اسم الخامة": "Search code or material name", "مفيش حركة لسه": "No moves yet", "مسح أوردر": "Order deleted", "مسح خامة من أوردر": "Material removed from order", "المخزن مش مكفي. المتاح": "Not enough in store. Available"});
 var LET=/[ء-ي]/,AR=/[؀-ۿ]/;
 var keys=Object.keys(DICT).sort(function(a,b){return b.length-a.length});
