@@ -1327,9 +1327,9 @@ function vEntry(){
       h('button',{class:'btn primary',type:'button',onclick:function(){
         var keep=drows.filter(function(r){return !r.del});
         if(keep.some(function(r){return !r.name.trim()||!(n(r.qty)>0)})){notice('كل رسمة لازم يكون ليها اسم وكمية أكبر من صفر.');return}
-        if(!keep.length){notice('لازم يفضل رسمة واحدة على الأقل.');return}
+        if(!keep.length){notice((o.items||[]).length?'لازم يفضل رسمة واحدة على الأقل.':'الأوردر ده مفيهوش رسومات لسه. دوس «+ رسمة» واكتب اسم الرسمة وكميتها، وبعدين احفظ.');return}
         var ob=Object.assign({},o);
-        ob.items=keep.map(function(r){var it=r.it?Object.assign({},r.it):{id:newId(),type:'',code:r.name.trim()};it.name=r.name.trim();it.qty=n(r.qty);it.finish=r.finish;if(!r.it)it.code=r.name.trim();return it});
+        ob.items=keep.map(function(r){var it=r.it?Object.assign({},r.it):{id:newId(),type:'',code:r.name.trim()};var nm=r.name.trim();if(!r.it||it.name!==nm){it.type='';it.code=nm}it.name=nm;it.qty=n(r.qty);it.finish=r.finish;return it});
         persist('orders',ob).then(function(){saved('✓ اتحفظت رسومات أوردر '+o.no+'.')});
       }},'احفظ الرسومات')));
   }
