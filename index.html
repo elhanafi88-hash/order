@@ -72,7 +72,16 @@ h2.sec{font-family:var(--font-display);font-size:19px;margin:6px 0 0;border-inli
 .tile .v{font-size:28px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
 .tile .l{font-size:13px;color:var(--muted)}
 .tile .s{font-size:12px;color:var(--muted)}
-.tile.late .v{color:var(--late)} .tile.soon .v{color:var(--soon)} .tile.ok .v{color:var(--ok)}
+.tile.late .v{color:var(--late)} .tile.soon .v{color:var(--soon)} .tile.ok .v{color:var(--ok)} .tile.info .v{color:var(--s-prod)} .tile.mute .v{color:var(--s-new)}
+.tile.late,.tile.soon,.tile.ok,.tile.info,.tile.mute{border-inline-start:6px solid var(--tc);background:color-mix(in srgb,var(--tc) 9%,var(--surface))}
+.tile.late{--tc:var(--late)} .tile.soon{--tc:var(--soon)} .tile.ok{--tc:var(--ok)} .tile.info{--tc:var(--s-prod)} .tile.mute{--tc:var(--s-new)}
+.tile.late .l,.tile.soon .l,.tile.ok .l,.tile.info .l,.tile.mute .l{color:var(--ink);font-weight:600}
+.dtag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px;letter-spacing:.3px;vertical-align:1px;white-space:nowrap}
+.dtag.br{background:var(--s-back);color:#fff} .dtag.st{background:color-mix(in srgb,var(--s-new) 16%,transparent);color:var(--s-new)}
+tr.rowbr td{background:color-mix(in srgb,var(--s-back) 7%,transparent)} tr.rowbr td:first-child{box-shadow:inset -4px 0 0 var(--s-back)}
+body.ltr tr.rowbr td:first-child{box-shadow:inset 4px 0 0 var(--s-back)}
+.grow2.br .glab{border-inline-start:5px solid var(--s-back);background:color-mix(in srgb,var(--s-back) 7%,transparent)}
+.grow2.st .glab{border-inline-start:5px solid color-mix(in srgb,var(--s-new) 45%,transparent)}
 .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 14px;cursor:pointer;font-size:13px;font-weight:500}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
@@ -184,10 +193,10 @@ tr.og td.oh.click:nth-child(2){min-width:170px}
 .gtrack .seg{position:absolute;top:50%;transform:translateY(-50%);height:24px;border-radius:4px;overflow:hidden;color:#fff;font-size:11px;font-weight:600;line-height:24px;white-space:nowrap;box-shadow:0 1px 0 rgba(0,0,0,.08)}
 .gtrack .seg span{position:relative;padding:0 6px}
 .gtrack .seg .fill{position:absolute;inset-block:0;inset-inline-start:0;background:rgba(0,0,0,.28)}
-.gtrack .seg.prod{background:var(--s-prod)} .gtrack .seg.galv{background:var(--s-galv)} .gtrack .seg.pack{background:var(--s-pack)}
+.gtrack .seg.prod{background:var(--s-prod)} .gtrack .seg.brk{background:var(--s-back);--sc:var(--s-back)} .gtrack .seg.galv{background:var(--s-galv)} .gtrack .seg.pack{background:var(--s-pack)}
 .gtrack .seg.est{box-shadow:none;border:1.5px dashed var(--sc)}
 .gtrack .seg.prod{--sc:var(--s-prod)} .gtrack .seg.galv{--sc:var(--s-galv)} .gtrack .seg.pack{--sc:var(--s-pack)}
-.gtrack .seg.est.prod,.gtrack .seg.est.galv,.gtrack .seg.est.pack{background:color-mix(in srgb,var(--sc) 14%,var(--surface));color:var(--sc)}
+.gtrack .seg.est.prod,.gtrack .seg.est.brk,.gtrack .seg.est.galv,.gtrack .seg.est.pack{background:color-mix(in srgb,var(--sc) 14%,var(--surface));color:var(--sc)}
 .gtrack .seg.wait{background:color-mix(in srgb,var(--s-cancel) 12%,var(--surface));color:var(--muted);border:1.5px dotted var(--s-cancel);box-shadow:none}
 .gtrack .due{position:absolute;top:2px;bottom:2px;width:3px;margin-inline-start:-1px;background:var(--late);border-radius:2px;z-index:2}
 .gtrack .due span{position:absolute;top:-1px;inset-inline-start:5px;font-size:10px;font-weight:700;color:var(--late);white-space:nowrap}
@@ -201,7 +210,6 @@ tr.og td.oh.click:nth-child(2){min-width:170px}
 .gtick span{position:absolute;top:2px;inset-inline-start:3px;font-size:11px;color:var(--muted);white-space:nowrap}
 .grow2[role=button]{cursor:pointer} .grow2[role=button]:hover{background:var(--surface-2)}
 .gl1{display:flex;align-items:center;gap:6px;flex-wrap:wrap} .gproj{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dtag{font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;background:color-mix(in srgb,var(--s-back) 18%,transparent);color:var(--s-back)}
 .gsec{padding:8px 12px;background:var(--surface-2);border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .gsec.est{border-top:2px solid var(--line)}
 .lg-wait{background:color-mix(in srgb,var(--s-cancel) 12%,var(--surface));border:1.5px dotted var(--s-cancel)}
@@ -332,6 +340,11 @@ function matCell(x){return h('div',null,matPill(x.matSt),h('div',{class:'small-t
 function dueCell(x){return h('div',{class:'num'},fd(x.o.due),(!x.closed&&x.est&&!x.t.ready&&!x.t.deliv)?h('div',{class:'small-t auto'},'مقترح '+fd(x.est)):null)}
 var DIVS=[['steel','حديد'],['bracket','BRACKET (ألومنيوم / استانلس / اكسسوارات)']];
 function divOf(o){return (o&&o.division)||'steel'}
+function isBr(o){return divOf(o)==='bracket'}
+function dTag(o){return o?h('span',{class:'dtag '+(isBr(o)?'br':'st')},isBr(o)?'BRACKET':'حديد'):null}
+function dName(o){return o?(isBr(o)?'BRACKET':'حديد'):''}
+function dOk(o){return S.dv==='all'||!o||divOf(o)===S.dv}
+function dSuf(o){return isBr(o)?' BRK':''}
 var FIN=[['galv','جلفنة'],['powder','بودر كوتنج'],['epoxy','طلاء إيبوكسي'],['paint','دهان'],['none','بدون تشطيب']];
 function finOf(it){return it.finish||(it.galv===false?'none':'galv')}
 function finLabel(k){var f=FIN.filter(function(x){return x[0]===k})[0];return f?f[1]:k}
@@ -466,7 +479,7 @@ function delBtn(label,fn){
 function ltxt(r,key){return (r.lines||[]).map(function(l){
   if(key==='qc')return itemName(r.orderId,l.itemId)+' (ناجح '+fq(l.pass)+(n(l.fail)?' · مرفوض '+fq(l.fail):'')+')';
   return itemName(r.orderId,l.itemId)+' × '+fq(l.qty)}).join('، ')}
-function oc(id){var o=orderOf(id);return o?h('div',null,h('div',{class:'no'},o.no),h('div',{class:'small-t'},pj(o)||'')):'؟ (أوردر اتمسح)'}
+function oc(id){var o=orderOf(id);return o?h('div',null,h('div',{class:'no'},o.no,' ',dTag(o)),h('div',{class:'small-t'},pj(o)||'')):'؟ (أوردر اتمسح)'}
 function openModal(title,body,wide,extra){
   var p=$('panel');p.textContent='';p.className='panel'+(wide?' wide':'');
   p.appendChild(h('h2',null,title,extra||null));p.appendChild(body);$('scrim').hidden=false;p.scrollTop=0;
@@ -730,7 +743,7 @@ function vTracking(){
     var o=x.o,rows=x.rows,span=Math.max(1,rows.length),open=function(){openDetail(o.id)};
     var oc1=function(cls,c){return h('td',{class:cls+' click',rowspan:String(span),onclick:open},c)};
     var cells=[
-      oc1('oh first1',h('div',null,h('div',{class:'no'},o.no),x.late?flag('متأخر '+x.late+(x.late===1?' يوم':' أيام'),'late'):null,x.st==='hold'?flag('موقوف: '+hrName(o.holdReason),'late'):null,divOf(o)==='bracket'?flag('BRACKET','soon'):null,docsOf(o.id).length?h('div',{class:'small-t'},'📎 '+docsOf(o.id).length):null)),
+      oc1('oh first1',h('div',null,h('div',{class:'no'},o.no,' ',dTag(o)),x.late?flag('متأخر '+x.late+(x.late===1?' يوم':' أيام'),'late'):null,x.st==='hold'?flag('موقوف: '+hrName(o.holdReason),'late'):null,divOf(o)==='bracket'?flag('BRACKET','soon'):null,docsOf(o.id).length?h('div',{class:'small-t'},'📎 '+docsOf(o.id).length):null)),
       oc1('oh',h('div',null,h('div',{class:'cust'},pj(o)||'—'),o.site&&o.title?h('div',{class:'small-t'},o.title):null)),
       oc1('oh',h('span',{class:'num'},fd(o.pdoDate))),
       oc1('oh',h('div',null,maPill(x.matAvail),x.short.length?h('div',{class:'small-t'},x.short.length+' ناقص'):null))
@@ -790,7 +803,7 @@ function vMaterials(){
   function keep(m){return !so||matState(m).sh>0}
   V.list.forEach(function(x){
     var ms=D.mats.filter(function(m){return m.orderId===x.o.id&&keep(m)});if(!ms.length)return;var o=x.o;
-    body.push(h('tr',{class:'og first',style:ocStyle(x)},h('td',{class:'oh first1',colspan:'12'},h('b',null,o.no),' · '+(pj(o)||''),' · تاريخ الأوردر '+fd(o.pdoDate)+'  ',maPill(x.matAvail))));
+    body.push(h('tr',{class:'og first',style:ocStyle(x)},h('td',{class:'oh first1',colspan:'12'},h('b',null,o.no),' ',dTag(o),' · '+(pj(o)||''),' · تاريخ الأوردر '+fd(o.pdoDate)+'  ',maPill(x.matAvail))));
     ms.forEach(function(m){body.push(matRow(m,ocStyle(x)))});
   });
   var gen=D.mats.filter(function(m){return !orderOf(m.orderId)&&keep(m)});
@@ -943,9 +956,9 @@ function vStore(){
   }),1250);
   return [
     h('div',{class:'tiles',style:'margin-bottom:10px'},
-      tile('خامات في الشيت',String(all.length)),
-      tile('ممكن تحجز منها دلوقتي',String(nAlloc),'المخزن فيه منها وفي أوردرات ناقصاها',nAlloc?'ok':''),
-      tile('محتاج شراء',String(nShort),'حتى بعد اللي في المخزن',nShort?'late':'')),
+      tile('خامات في الشيت',String(all.length),null,'info'),
+      tile('ممكن تحجز منها دلوقتي',String(nAlloc),'المخزن فيه منها وفي أوردرات ناقصاها','ok'),
+      tile('محتاج شراء',String(nShort),'حتى بعد اللي في المخزن',nShort?'late':'ok')),
     bar,info,t];
 }
 function openStockNew(){
@@ -1155,7 +1168,7 @@ function vSchedule(){
       nEst=rows.filter(function(r){return !r.firm}).length,nNow=rows.filter(function(r){return r.x.started}).length;
   var f=S.gf||'all';
   var shown=rows.filter(function(r){return f==='all'||(f==='late'&&r.isLate)||(f==='wait'&&(r.wait||r.noMatDate))||(f==='est'&&!r.firm)});
-  shown.sort(function(a,b){return (a.firm===b.firm?0:(a.firm?-1:1))||a.s.e3.localeCompare(b.s.e3)||byNo(a.o,b.o)});
+  shown.sort(function(a,b){return (a.firm===b.firm?0:(a.firm?-1:1))||(isBr(a.o)===isBr(b.o)?0:(isBr(a.o)?1:-1))||a.s.e3.localeCompare(b.s.e3)||byNo(a.o,b.o)});
   var min=td,max=addDays(td,7);
   shown.forEach(function(r){if(r.s.s<min)min=r.s.s;if(r.s.e3>max)max=r.s.e3;if(r.o.due&&r.o.due>max)max=r.o.due;if(r.o.due&&r.o.due<min)min=r.o.due});
   min=addDays(min,-1);max=addDays(max,2);
@@ -1186,9 +1199,9 @@ function vSchedule(){
   function line(r){
     var x=r.x,o=r.o,sc=r.s,anyGv=x.rows.some(function(c){return c.gv}),pct=x.t.qty>0?Math.min(100,Math.round(x.t.prod/x.t.qty*100)):0;
     var est=r.firm?'':' est',isB=divOf(o)==='bracket';
-    return h('div',{class:'grow2',tabindex:'0',role:'button','aria-label':'أوردر '+o.no,onclick:function(){openDetail(o.id)},onkeydown:function(e){if(e.key==='Enter')openDetail(o.id)}},
+    return h('div',{class:'grow2 '+(isB?'br':'st'),tabindex:'0',role:'button','aria-label':'أوردر '+o.no,onclick:function(){openDetail(o.id)},onkeydown:function(e){if(e.key==='Enter')openDetail(o.id)}},
       h('div',{class:'glab'},
-        h('div',{class:'gl1'},h('span',{class:'no'},o.no),isB?h('span',{class:'dtag'},'BRACKET'):null,pill(x.st)),
+        h('div',{class:'gl1'},h('span',{class:'no'},o.no),dTag(o),pill(x.st)),
         h('div',{class:'small-t gproj'},pj(o)||''),
         h('div',{class:'small-t num'},'بدء '+fd(sc.s).slice(0,5)+' ← خلوص '+fd(sc.e3).slice(0,5)+(o.due?' · تسليم '+fd(o.due).slice(0,5):'')),
         h('div',{class:'small-t num'},'اتنتج '+fq(x.t.prod)+' من '+fq(x.t.qty)+(x.t.deliv?' · اتسلّم '+fq(x.t.deliv):''),' ',maPill(x.matAvail)),
@@ -1197,7 +1210,7 @@ function vSchedule(){
         null),
       h('div',{class:'gtrack'},bg(),
         r.wait?seg(x.base,r.wait,'wait','مستني خامات','مستني خامات لحد '+fd(r.wait)):null,
-        seg(sc.s,sc.e1,'prod'+est,(isB?'تصنيع ':'إنتاج ')+dn(sc.s,sc.e1)+(pct?' · '+pct+'%':''),'إنتاج: '+fd(sc.s)+' ← '+fd(sc.e1)+(pct?' · اتنتج '+pct+'%':''),pct||null),
+        seg(sc.s,sc.e1,(isB?'brk':'prod')+est,(isB?'تصنيع ':'إنتاج ')+dn(sc.s,sc.e1)+(pct?' · '+pct+'%':''),'إنتاج: '+fd(sc.s)+' ← '+fd(sc.e1)+(pct?' · اتنتج '+pct+'%':''),pct||null),
         sc.gd?seg(sc.e1,sc.e2,'galv'+est,(anyGv?'جلفنة ':'بودر ')+dn(sc.e1,sc.e2),(anyGv?'جلفنة: ':'بودر كوتنج: ')+fd(sc.e1)+' ← '+fd(sc.e2)):null,
         sc.fz?seg(sc.e2,sc.e3,'pack'+est,'فحص '+dn(sc.e2,sc.e3),'تنظيف وفحص: '+fd(sc.e2)+' ← '+fd(sc.e3)):null,
         o.due?h('div',{class:'due',title:'التسليم المطلوب '+fd(o.due),style:at(o.due)},h('span',null,'تسليم')):null,
@@ -1213,14 +1226,14 @@ function vSchedule(){
   var chips=[['all','الكل ('+rows.length+')'],['late','متأخر ('+nLate+')'],['wait','مستني خامات ('+nWait+')'],['est','محتاج ميعاد بدء ('+nEst+')']];
   return [dvBar(),
     h('div',{class:'tiles',style:'margin-bottom:10px'},
-      tile('في الإنتاج دلوقتي',String(nNow)),
-      tile('متأخر أو هيتأخر عن التسليم',String(nLate),null,nLate?'late':''),
-      tile('مستني خامات',String(nWait),null,nWait?'soon':''),
-      tile('محتاج ميعاد بدء',String(nEst),'لسه تقديري')),
+      tile('في الإنتاج دلوقتي',String(nNow),null,'info'),
+      tile('متأخر أو هيتأخر عن التسليم',String(nLate),null,nLate?'late':'ok'),
+      tile('مستني خامات',String(nWait),null,'soon'),
+      tile('محتاج ميعاد بدء',String(nEst),'لسه تقديري','mute')),
     h('div',{class:'bar'},chips.map(function(c){return h('button',{class:'chip',type:'button','aria-pressed':String(f===c[0]),onclick:function(){S.gf=c[0];render()}},c[1])}),
       h('span',{class:'sp'}),h('button',{class:'btn',type:'button',onclick:function(){S.rep='sched';go('reports')}},'جدول الإنتاج كتقرير للمكتب')),
     h('div',{class:'gleg',style:'margin:8px 0'},
-      h('span',null,h('b',{style:'background:var(--s-prod)'}),'إنتاج'),S.dv==='bracket'?null:h('span',null,h('b',{style:'background:var(--s-galv)'}),'جلفنة / بودر'),
+      S.dv==='bracket'?null:h('span',null,h('b',{style:'background:var(--s-prod)'}),'إنتاج حديد'),S.dv==='steel'?null:h('span',null,h('b',{style:'background:var(--s-back)'}),'تصنيع براكت'),S.dv==='bracket'?null:h('span',null,h('b',{style:'background:var(--s-galv)'}),'جلفنة / بودر'),
       S.dv==='bracket'?null:h('span',null,h('b',{style:'background:var(--s-pack)'}),'تنظيف وفحص'),h('span',null,h('b',{class:'lg-wait'}),'مستني خامات'),
       h('span',null,h('b',{class:'lg-est'}),'تقديري (مش متحدد)'),h('span',null,h('b',{style:'background:var(--late);width:3px'}),'التسليم المطلوب'),
       h('span',null,h('b',{style:'background:var(--accent);width:3px'}),'النهارده'),h('span',null,h('b',{class:'lg-off'}),'جمعة')),
@@ -1257,7 +1270,8 @@ var REPS=[['track','شيت متابعة الأوردرات'],['office','حالة
 function inRange(d){return (!S.from||d>=S.from)&&(!S.to||d<=S.to)}
 function oNo(id){var o=orderOf(id);return o?o.no:'؟'}
 function oCu(id){var o=orderOf(id);return o?pj(o):''}
-function buildReport(k){
+function buildReport(k){var rep=buildReport0(k);return addDiv(rep)}
+function buildReport0(k){
   var H=[],R=[];
   if(k==='track'){
     H=['رقم الأوردر (PDO)','اسم المشروع','تاريخ الأوردر','الخامات','الرسمة','الكمية','التشطيب','اتنتج','عند الجلفنة','راجع من الجلفنة','اتغلّف','فحص ناجح','فحص مرفوض','اتسلّم','تواريخ التسليم الفعلي','المتبقي','دفعات التسليم المخططة','حالة الرسمة','التسليم المطلوب'];
@@ -1303,6 +1317,14 @@ function buildReport(k){
     D.mats.forEach(function(m){R.push([m.orderId?oNo(m.orderId):'عام',m.orderId?matItem(m):'',m.name||'',m.unit||'',fq(m.required),fq(m.received),fq(m.used),fq(n(m.received)-n(m.used)),fq(Math.max(0,n(m.required)-n(m.received))),m.reqDate?fd(m.reqDate):'',m.expected?fd(m.expected):''])});
   }
   return {H:H,R:R};
+}
+function addDiv(rep){
+  var ci=-1;rep.H.forEach(function(x,i){if(ci<0&&['رقم الأوردر (PDO)','رقم PDO','الأوردر'].indexOf(x)>=0)ci=i});
+  if(ci<0)return rep;
+  var byNoMap={};D.orders.forEach(function(o){byNoMap[String(o.no)]=o});
+  var H=rep.H.slice();H.splice(ci+1,0,'القسم');
+  var R=[];rep.R.forEach(function(r){var o=byNoMap[String(r[ci])];if(!dOk(o))return;var x=r.slice();x.splice(ci+1,0,dName(o));R.push(x)});
+  return {H:H,R:R,di:ci+1};
 }
 function csv(rep){
   rep={H:rep.H.map(EN),R:rep.R.map(function(r){return r.map(EN)})};
@@ -1371,7 +1393,7 @@ function buildOfficePdf(kind){
             LN(M,y-rh,W-M,y-rh,'soft',.4);y-=rh});
           y-=10;
         }
-        var list=openList().filter(function(x){return x.st!=='cancel'}),all=V.list.filter(function(x){return x.st!=='cancel'});
+        var list=openList().filter(function(x){return x.st!=='cancel'&&dOk(x.o)}),all=V.list.filter(function(x){return x.st!=='cancel'&&dOk(x.o)});
         var live=list.filter(function(x){return x.st!=='hold'});
         function stx(x){var m={new:['Not started yet','galv'],prod:['In production','prod'],galv:['In production (galvanizing)','prod'],back:['In production (finishing)','prod'],pack:['In production (finishing)','prod'],ready:['Ready for delivery','ok'],part:['Partly delivered','ok'],done:['Delivered','ok'],hold:['ON HOLD','late']};return m[x.st]||[ST[x.st],'ink']}
         function stc(x){return x.st==='hold'||x.late?'late':(x.st==='ready'||x.st==='part'||x.st==='done')?'ok':'ink'}
@@ -1383,7 +1405,7 @@ function buildOfficePdf(kind){
           kpi([['Open orders',String(list.length),'head'],['Total quantity (pcs)',fq(q),'ink'],['Produced',fq(pr),'prod'],['Delivered',fq(dv2),'ok'],['On hold',String(list.filter(function(x){return x.st==='hold'}).length),'galv'],['Late vs required date',String(list.filter(function(x){return x.late}).length),'late'],['Orders short of materials',String(shortN),'galv']]);
           T('Open orders',M,y,{b:1,sz:11});y-=8;
           var rows=list.slice().sort(function(a,b){return (a.o.due||'9999').localeCompare(b.o.due||'9999')||byNo(a.o,b.o)}).map(function(x){var o=x.o;
-            return [{t:String(o.no||''),c:'ink'},pj(o)||'',o.pdoDate?fd(o.pdoDate):'-',{t:stx(x)[0],c:stx(x)[1]},fq(x.t.qty),fq(x.t.prod),fq(x.t.deliv),{bar:x.t.qty?x.t.deliv/x.t.qty:0},x.matSt==='ok'?'Complete':(x.short.length?'Short ('+x.short.length+')':'Not logged'),o.due?fd(o.due):'-',x.closed?'-':fd(schedOf(x).e3),x.late?{t:x.late+'d',c:'late'}:(x.st==='hold'?{t:hrName(o.holdReason),c:'late'}:'')]});
+            return [{t:String(o.no||'')+dSuf(o),c:'ink'},pj(o)||'',o.pdoDate?fd(o.pdoDate):'-',{t:stx(x)[0],c:stx(x)[1]},fq(x.t.qty),fq(x.t.prod),fq(x.t.deliv),{bar:x.t.qty?x.t.deliv/x.t.qty:0},x.matSt==='ok'?'Complete':(x.short.length?'Short ('+x.short.length+')':'Not logged'),o.due?fd(o.due):'-',x.closed?'-':fd(schedOf(x).e3),x.late?{t:x.late+'d',c:'late'}:(x.st==='hold'?{t:hrName(o.holdReason),c:'late'}:'')]});
           table([{h:'PDO',w:42,f:1},{h:'Project',w:105},{h:'Order date',w:56},{h:'Status',w:92},{h:'Total',w:46,al:'r'},{h:'Produced',w:52,al:'r'},{h:'Delivered',w:52,al:'r'},{h:'Progress',w:70},{h:'Materials',w:70},{h:'Required',w:62},{h:'Ready by',w:70},{h:'Late / Hold',w:80}],rows,{rh:20});
           if(!rows.length)T('No open orders.',M,y,{sz:9,c:'mute'});
           LN(M,y,W-M,y,'line',.4);y-=12;
@@ -1416,7 +1438,7 @@ function buildOfficePdf(kind){
             for(var j=0;j<cnt;j++,i++){var r=rows[i],x=r.x,o=x.o,s=r.s,ry=y-24*(j+1);
               if(j%2)R(M,ry,gx-M-6,24,'band');
               LN(M,ry,W-M,ry,'soft',.4);
-              T(o.no,M+6,ry+9,{b:1,sz:8.5,w:cw[0]-8});T(pj(o)||'',M+cw[0]+6,ry+9,{sz:8.5,w:cw[1]-8});T(o.pdoDate?fd(o.pdoDate):'-',M+cw[0]+cw[1]+6,ry+9,{sz:8.5});T(fq(x.t.qty),M+lw-6,ry+9,{sz:8.5,al:'r'});
+              T(o.no+dSuf(o),M+6,ry+9,{b:1,sz:8.5,w:cw[0]-8});T(pj(o)||'',M+cw[0]+6,ry+9,{sz:8.5,w:cw[1]-8});T(o.pdoDate?fd(o.pdoDate):'-',M+cw[0]+cw[1]+6,ry+9,{sz:8.5});T(fq(x.t.qty),M+lw-6,ry+9,{sz:8.5,al:'r'});
               var by=ry+6,bh=12;
               if(x.st==='hold'){R(px(s.s),by,Math.max(4,px(s.e1)-px(s.s)),bh,'#fecaca',{bc:'late'});T('ON HOLD - '+hrName(o.holdReason),px(s.s)+4,by+3.5,{sz:7,b:1,c:'late'})}
               else{
@@ -1446,7 +1468,7 @@ function buildOfficePdf(kind){
         function pQty(){
           newPage('Quantities in Hand',"Per order - as of "+fd(td));
           var rows=[];list.slice().sort(function(a,b){return byNo(a.o,b.o)}).forEach(function(x){
-            rows.push([{t:x.o.no,c:'ink'},pj(x.o)||'',x.o.pdoDate?fd(x.o.pdoDate):'-',fq(x.t.qty),fq(x.t.prod),fq(x.t.ready),fq(x.t.deliv),fq(Math.max(0,x.t.qty-x.t.deliv)),fd(schedOf(x).e3)])});
+            rows.push([{t:x.o.no+dSuf(x.o),c:'ink'},pj(x.o)||'',x.o.pdoDate?fd(x.o.pdoDate):'-',fq(x.t.qty),fq(x.t.prod),fq(x.t.ready),fq(x.t.deliv),fq(Math.max(0,x.t.qty-x.t.deliv)),fd(schedOf(x).e3)])});
           var t0=[0,0,0,0,0];list.forEach(function(x){t0[0]+=x.t.qty;t0[1]+=x.t.prod;t0[2]+=x.t.ready;t0[3]+=x.t.deliv;t0[4]+=Math.max(0,x.t.qty-x.t.deliv)});
           rows.push([{t:'TOTAL',c:'ink'},'','',fq(t0[0]),fq(t0[1]),fq(t0[2]),fq(t0[3]),fq(t0[4]),'']);
           table([{h:'PDO',w:50,f:1},{h:'Project',w:140},{h:'Order date',w:70},{h:'Ordered (pcs)',w:80,al:'r'},{h:'Produced',w:80,al:'r'},{h:'Ready to deliver',w:90,al:'r'},{h:'Delivered',w:80,al:'r'},{h:'Remaining',w:80,al:'r'},{h:'Expected ready',w:90,al:'r'}],rows,{rh:20});
@@ -1454,10 +1476,10 @@ function buildOfficePdf(kind){
         }
         /* ---- page: material shortages ---- */
         function pShort(){
-          var ms=D.mats.filter(function(m){var x=V.by[m.orderId];return n(m.required)>n(m.received)&&x&&!x.closed&&x.st!=='cancel'});
+          var ms=D.mats.filter(function(m){var x=V.by[m.orderId];return n(m.required)>n(m.received)&&x&&!x.closed&&x.st!=='cancel'&&dOk(x.o)});
           if(!ms.length)return;
           newPage('Material Shortages',fd(td));
-          var rows=ms.map(function(m){var o=orderOf(m.orderId);return [{t:o?o.no:'',c:'ink'},o?(pj(o)||''):'',m.code||'',m.name||'',m.unit||'',fq(m.required),fq(m.received),{t:fq(n(m.required)-n(m.received)),c:'late'},m.reqDate?fd(m.reqDate):'Not requested',m.expected?fd(m.expected):'-']});
+          var rows=ms.map(function(m){var o=orderOf(m.orderId);return [{t:o?o.no+dSuf(o):'',c:'ink'},o?(pj(o)||''):'',m.code||'',m.name||'',m.unit||'',fq(m.required),fq(m.received),{t:fq(n(m.required)-n(m.received)),c:'late'},m.reqDate?fd(m.reqDate):'Not requested',m.expected?fd(m.expected):'-']});
           table([{h:'PDO',w:38,f:1},{h:'Project',w:90},{h:'Code',w:62},{h:'Material',w:180},{h:'Unit',w:40},{h:'Required',w:48,al:'r'},{h:'Received',w:48,al:'r'},{h:'Short',w:44,al:'r'},{h:'Requested',w:60},{h:'Expected',w:60}],rows,{rh:19});
         }
         if(kind==='timeline'){pTimeline()}
@@ -1491,8 +1513,11 @@ function vReports(){
     dl?h('button',{class:'btn',type:'button',onclick:function(){
       dl.save({filename:'metaplex-'+S.rep+'-'+today()+'.csv',data:csv(rep)}).then(function(){msg.textContent='اتحفظ.'}).catch(function(e){msg.textContent=(e&&e.code==='declined')?'':'تعذر تحميل الملف.'});
     }},'تحميل (يفتح في Excel)'):null);
-  return [bar,h('div',{class:'small-t'},nm+' · '+rep.R.length+' سطر'),
-    rep.R.length?tbl(rep.H,rep.R.map(function(r){return row(r)}),Math.max(640,rep.H.length*110)):empty('مفيش بيانات في التقرير ده','غيّر التواريخ أو سجّل حركات.')];
+  var dvb=h('div',{class:'bar',style:'margin-top:8px'},h('span',{class:'small-t'},'القسم:'),
+    [['all','الكل']].concat(DIVS).map(function(c){return h('button',{class:'chip',type:'button','aria-pressed':String(S.dv===c[0]),onclick:function(){S.dv=c[0];render()}},c[1])}),
+    h('span',{class:'small-t'},'التقرير والـ PDF والـ Excel بيطلعوا للقسم اللي مختاره.'));
+  return [bar,dvb,h('div',{class:'small-t'},nm+(S.dv!=='all'?' · '+(S.dv==='bracket'?'BRACKET':'حديد'):'')+' · '+rep.R.length+' سطر'),
+    rep.R.length?tbl(rep.H,rep.R.map(function(r){if(rep.di==null)return row(r);var b=r[rep.di]==='BRACKET',c=r.slice();c[rep.di]=h('span',{class:'dtag '+(b?'br':'st')},r[rep.di]);return row(c,b?'rowbr':'')}),Math.max(640,rep.H.length*110)):empty('مفيش بيانات في التقرير ده','غيّر التواريخ أو سجّل حركات.')];
 }
 
 
@@ -2371,6 +2396,8 @@ var DICT={"ملف إذن التسليم (PDF أو صورة)": "Delivery note fil
 Object.assign(DICT,{"💾 نسخة احتياطية":"💾 Backup","النسخة الاحتياطية":"Backup","💾 حمّل نسخة احتياطية دلوقتي":"💾 Download a backup now","↩ استرجاع من نسخة":"↩ Restore from a backup","آخر نسخة احتياطية:":"Last backup:","لسه ماخدتش نسخة":"no backup yet","عندك دلوقتي:":"You have now:","خد نسخة احتياطية من زرار 💾 فوق":"Take a backup with the 💾 button above","+ اتنتج":"+ Produced","🚚 اتسلّم":"🚚 Delivered","📎 ملف":"📎 File","📎 ارفع ملف الرسمة":"📎 Upload drawing file","✎ ضيف رسمة بإيدك":"✎ Add drawing manually","مفيش رسومات في الأوردر ده لسه.":"No drawings in this order yet.","📎 ارفع رسمة / ملف (تعديل)":"📎 Upload drawing / file (revision)","ده تعديل (Revision) على رسمة قديمة":"This is a revision of an existing drawing","الملفات الحالية":"Current files","رفع ملف:":"Upload file:","اتغيرت من":"changed from","كتعديل":"as a revision","ملاحظة (اختياري)":"Note (optional)","حدد الدفعة الجاية:":"set the next batch:","✓ أضف":"✓ Add","اكتب الكمية.":"Enter the quantity.","اختار التاريخ.":"Pick the date.","أكتر من الباقي":"More than the remaining","دفعات التسليم (الكمية · التاريخ)": "Delivery batches (qty · date)", "دفعات التسليم (مواعيد)": "Delivery batches (dates)", "دفعات التسليم المخططة": "Planned delivery batches", "تواريخ التسليم الفعلي": "Actual delivery dates", "دفعات التسليم": "Delivery batches", "✓ اتسلّمت": "✓ Delivered", "متأخرة": "Late", "اتسلّم جزء": "Partly delivered", "مفيش مواعيد تسليم": "No delivery dates", "+ حدد الدفعات": "+ Set batches", "من غير ميعاد": "without a date", "+ دفعة": "+ Batch", "دفعة": "Batch", "كمية الرسمة": "Drawing qty", "اتسلّم لحد دلوقتي": "delivered so far", "في الدفعات": "in batches", "الباقي من غير ميعاد": "remaining without a date", "كل الكمية ليها مواعيد ✓": "all quantity has dates ✓", "الدفعات أكتر من الكمية بـ": "batches exceed quantity by", "اكتب كمية لكل دفعة.": "Enter a quantity for each batch.", "اختار تاريخ لكل دفعة.": "Pick a date for each batch.", "مجموع الدفعات أكبر من كمية الرسمة": "Batches total more than the drawing quantity", "قسّم كمية الرسمة على دفعات، كل دفعة بكميتها وميعاد تسليمها. لما تسجّل تسليم فعلي، السيستم بيخصمه من الدفعات بالترتيب.": "Split the drawing quantity into batches, each with its quantity and delivery date. When you record an actual delivery, the system deducts it from the batches in order."});
 Object.assign(DICT,{"مجدول": "Scheduled", "تقديري — محتاج ميعاد بدء": "Estimated — needs a start date", "محتاج ميعاد بدء": "Needs start date", "مستني خامات": "Waiting for materials", "في الإنتاج دلوقتي": "In production now", "متأخر أو هيتأخر عن التسليم": "Late or will be late", "لسه تقديري": "still estimated", "تقديري (مش متحدد)": "Estimated (not set)", "جلفنة / بودر": "Galvanizing / powder", "جمعة": "Friday", "تسليم": "Delivery", "خلوص": "finish", "تصنيع": "Manufacturing", "فحص": "Inspection", "بودر": "Powder", "اتنتج": "Produced", "اتسلّم": "Delivered", "من غير ميعاد وصول": "no arrival date", "هيخلص بعد التسليم بـ": "Finishes after delivery by", "في الميعاد · قبل التسليم بـ": "On time · ahead of delivery by", "مفيش ميعاد تسليم": "No delivery date", "القسم:": "Division:", "مفيش أوردرات بالفلتر ده": "No orders match this filter", "بدء الإنتاج متحدد أو الإنتاج بدأ فعلًا": "Start date set or production already started", "البراكت: من الخامات للتصنيع على طول، من غير جلفنة ولا تنظيف.": "Brackets: from materials straight to manufacturing, no galvanizing or cleaning."});
 Object.assign(DICT,{"في الميعاد · بيخلص يوم التسليم": "On time · finishes on delivery day", "الخامات الناقصة مالهاش ميعاد وصول": "Missing materials have no arrival date"});
+Object.assign(DICT,{"القسم": "Division", "حديد": "Steel", "التقرير والـ PDF والـ Excel بيطلعوا للقسم اللي مختاره.": "The report, PDF and Excel follow the selected division."});
+Object.assign(DICT,{"إنتاج حديد": "Steel production", "تصنيع براكت": "Bracket manufacturing"});
 Object.assign(DICT,{"المخزن": "Store", "في المخزن": "In store", "مطلوب للأوردرات": "Needed by orders", "متوفر للأوردرات": "Covered for orders", "ناقص في الأوردرات": "Short in orders", "بعد المخزن": "After store", "حجز لأوردر": "Reserve for order", "حجز من المخزن": "Reserve from store", "من المخزن": "From store", "+ وارد": "+ Stock in", "جرد": "Count", "الحركة": "Move", "+ خامة للمخزن": "+ Store material", "خامة جديدة للمخزن": "New store material", "الرصيد الموجود دلوقتي": "Quantity on hand now", "وارد للمخزن": "Stock in", "الكمية الواردة": "Quantity in", "تاريخ الوارد": "Date in", "حفظ وروح للحجز": "Save and reserve", "جرد المخزن": "Store count", "الموجود فعلًا (من غير المحجوز للأوردرات)": "Actual on hand (excluding reserved)", "حركة المخزن": "Store moves", "رصيد أول": "Opening balance", "فك حجز": "Unreserve", "رجوع للمخزن": "Returned to store", "جرد / تسوية": "Count / adjustment", "حفظ الحجز": "Save reservation", "محجوز من المخزن": "Reserved from store", "منه من المخزن": "Of which from store", "كمّل الناقص": "Fill shortage", "ممكن تحجز منها": "Can reserve", "محتاج شراء": "Need to buy", "موجود في المخزن": "In stock", "خامات في الشيت": "Materials", "ممكن تحجز منها دلوقتي": "Can reserve now", "المخزن فاضي": "Store is empty", "ناقص — محتاج شراء": "Short — need to buy", "المخزن يكفي — احجز": "Store covers it — reserve", "المخزن يكفي جزء": "Store covers part", "الأوردرات مكتملة": "Orders covered", "مش مطلوبة دلوقتي": "Not needed now", "ناقص في:": "Short in:", "يفضل": "left", "هيتحجز": "Will reserve", "هيرجع للمخزن": "Will return to store", "هيفضل في المخزن": "Left in store", "دور بالكود أو اسم الخامة": "Search code or material name", "مفيش حركة لسه": "No moves yet", "مسح أوردر": "Order deleted", "مسح خامة من أوردر": "Material removed from order", "المخزن مش مكفي. المتاح": "Not enough in store. Available"});
 var LET=/[ء-ي]/,AR=/[؀-ۿ]/;
 var keys=Object.keys(DICT).sort(function(a,b){return b.length-a.length});
