@@ -1515,8 +1515,9 @@ function filesSection(id){
           var rec={id:newId(),orderId:id,kind:k,name:f.name,assetId:r.id,size:r.sizeBytes,type:r.contentType,date:today(),createdAt:new Date().toISOString()};
           D.docs.push(rec);return persist('docs',rec);
         }).then(function(){
+          if(k==='drawing'&&ty==='application/pdf')return f.arrayBuffer().then(parsePdo).then(function(r){return addPdfItems(id,r.items).then(function(ni){imp.push(ni?f.name+': اتضاف '+ni+' رسمة بكميتها.':f.name+': اتحفظ. مفيش سطر كمية (QTY = ... PCS) جديد في الملف.')})}).catch(function(){});
           if(k==='order'&&ty==='application/pdf')return f.arrayBuffer().then(parsePdo).then(function(r){return addPdfItems(id,r.items).then(function(ni){if(ni)imp.push(f.name+': اتضاف '+ni+' رسمة بكميتها.');return r.mats.length?addMats(id,r.mats).then(function(n){imp.push(f.name+': اتضاف '+n+' خامة من الأوردر تلقائي.')}):imp.push(f.name+': مفيش خامات اتقرت من الملف، سجّلها يدوي.')})}).catch(function(){imp.push(f.name+': تعذرت قراءة الخامات، سجّلها يدوي.')});
-        }).catch(function(e){bad.push(f.name+': تعذر رفع الملف.')});
+        }).catch(function(e){bad.push(f.name+': تعذر رفع الملف'+(e&&/quota/i.test(String(e.name||e.message||e))?' (مساحة المتصفح خلصت).':'.'))});
       })},Promise.resolve()).then(function(){draw();var m=box.querySelector('[role=status]');if(m&&(bad.length||imp.length))m.textContent=imp.concat(bad).join(' | ')});
     }
     if(as){
@@ -1873,6 +1874,17 @@ $('scrim').addEventListener('click',function(e){if(e.target===$('scrim'))closeMo
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('scrim').hidden)closeModal()});
 window.addEventListener('hashchange',function(){fromHash();render()});
 fromHash();render();
+var localAs=(function(){
+  var dbp=null;
+  function idb(){if(dbp)return dbp;dbp=new Promise(function(res,rej){try{var q=indexedDB.open('mx-files',1);q.onupgradeneeded=function(){q.result.createObjectStore('f')};q.onsuccess=function(){res(q.result)};q.onerror=function(){rej(q.error)}}catch(e){rej(e)}});return dbp}
+  function tx(mode,fn){return idb().then(function(db){return new Promise(function(res,rej){var t=db.transaction('f',mode),st=t.objectStore('f'),r=fn(st);t.oncomplete=function(){res(r&&r.result)};t.onerror=function(){rej(t.error)};t.onabort=function(){rej(t.error||new Error('quota'))}})})}
+  return {
+    upload:function(blob,o){var id='l'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),ty=(o&&o.type)||blob.type||'application/octet-stream',b=blob.slice(0,blob.size,ty);
+      return tx('readwrite',function(st){return st.put(b,id)}).then(function(){return {id:id,url:'/_blob/'+id,sizeBytes:blob.size,contentType:ty}})},
+    delete:function(id){return tx('readwrite',function(st){return st.delete(id)})},
+    get:function(id){return tx('readonly',function(st){return st.get(id)})}
+  };
+})();
 var localDl={save:function(o){try{var b=o.data instanceof Blob?o.data:new Blob([o.data]),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=o.filename;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},4000);return Promise.resolve()}catch(e){return Promise.reject(e)}}};
 function boot(d,dwn){
   db=d;dl=dwn||localDl;
@@ -1889,7 +1901,12 @@ var use=window.claude&&window.claude.use;
 if(use){
   Promise.all([window.claude.use('db').catch(function(){return null}),window.claude.use('downloads').catch(function(){return null})]).then(function(r){boot(r[0],r[1])});
   window.claude.use('assets').then(function(a){as=a;if(a)render()}).catch(function(){});
-}else boot(null,null);
+}else{
+  as=localAs;
+  var rf=window.fetch.bind(window);
+  window.fetch=function(u,init){if(typeof u==='string'&&u.indexOf('/_blob/')===0)return localAs.get(u.slice(7)).then(function(b){return b?new Response(b,{status:200,headers:{'Content-Type':b.type||'application/octet-stream'}}):new Response(null,{status:404})},function(){return new Response(null,{status:500})});return rf(u,init)};
+  boot(null,null);
+}
 })();
 </script>
 
