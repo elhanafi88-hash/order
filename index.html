@@ -335,6 +335,10 @@ function n(x){var v=parseFloat(x);return isFinite(v)?v:0}
 function p2(v){return (v<10?'0':'')+v}
 function today(){var d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())}
 function dayDiff(a,b){var x=a.split('-'),y=b.split('-');return Math.round((Date.UTC(+x[0],x[1]-1,+x[2])-Date.UTC(+y[0],y[1]-1,+y[2]))/864e5)}
+var OFF_DOW=0;/* weekly day off: 0=Sunday */
+function isOffDay(s){var p=s.split('-');return new Date(Date.UTC(+p[0],p[1]-1,+p[2])).getUTCDay()===OFF_DOW}
+function addWork(s,n){var d=s;for(var i=0;i<n;i++){d=addDays(d,1);while(isOffDay(d))d=addDays(d,1)}return d}
+function workDiff(a,b){var c=0,d=b;while(d<a){d=addDays(d,1);if(!isOffDay(d))c++}return c}
 function addDays(s,d){var p=s.split('-'),t=new Date(Date.UTC(+p[0],p[1]-1,+p[2]+d));return t.getUTCFullYear()+'-'+p2(t.getUTCMonth()+1)+'-'+p2(t.getUTCDate())}
 function dv(v,d){return (v===''||v==null)?d:n(v)}
 function fd(s){if(!s)return '—';var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
@@ -438,8 +442,8 @@ function calcOrder(o,M){
   var started='';D.prod.forEach(function(r){if(r.orderId===o.id&&r.type!=='pack'&&r.date&&(!started||r.date<started))started=r.date});
   var base=(o.startDate&&o.startDate>td)?o.startDate:td,start=started||(matDate&&matDate>base?matDate:base);
   var anyGv=divOf(o)!=='bracket'&&rows.some(function(c){return c.gv||c.px});
-  var pdur=(o.startDate&&o.prodEnd)?Math.max(0,dayDiff(o.prodEnd,o.startDate)):dv(o.prodDays,5);
-  var est=addDays(start,pdur+(anyGv?dv(o.galvDays,3):0)+dv(o.finDays,divOf(o)==='bracket'?0:2));
+  var pdur=(o.startDate&&o.prodEnd)?Math.max(0,workDiff(o.prodEnd,o.startDate)):dv(o.prodDays,5);
+  var est=addWork(start,pdur+(anyGv?dv(o.galvDays,3):0)+dv(o.finDays,divOf(o)==='bracket'?0:2));
   var late=(!closed&&st!=='hold'&&o.due&&dayDiff(o.due,td)<0)?-dayDiff(o.due,td):0;
   if(!closed&&st!=='hold')rows.forEach(function(c){if(c.planLate>late)late=c.planLate});
   var oldest=0;
@@ -1218,7 +1222,7 @@ function vDelivery(){
 /* ---------- schedule ---------- */
 function schedOf(x){
   var o=x.o,isB=divOf(o)==='bracket',pd=x.pd,gd=(!isB&&x.rows.some(function(c){return c.gv||c.px}))?dv(o.galvDays,3):0,fz=isB?0:dv(o.finDays,2);
-  var s=x.start,e1=addDays(s,pd),e2=addDays(e1,gd),e3=addDays(e2,fz);
+  var s=x.start,e1=addWork(s,pd),e2=addWork(e1,gd),e3=addWork(e2,fz);
   return {s:s,e1:e1,e2:e2,e3:e3,pd:pd,gd:gd,fz:fz};
 }
 function vSchedule(){
@@ -1244,11 +1248,11 @@ function vSchedule(){
   var days=[];for(var i=0;i<tot;i++)days.push(addDays(min,i));
   function dow(d){var p=d.split('-');return new Date(Date.UTC(+p[0],p[1]-1,+p[2])).getUTCDay()}
   var WD=['ح','ن','ث','ر','خ','ج','س'];
-  function bg(){return days.map(function(d){var c=dow(d)===0?' off':'';return (c||!daily)?(c?h('div',{class:'gday'+c,style:at(d,'width:'+(100/tot)+'%')}):null):h('div',{class:'gday',style:at(d,'width:'+(100/tot)+'%')})})}
+  function bg(){return days.map(function(d){var c=dow(d)===OFF_DOW?' off':'';return (c||!daily)?(c?h('div',{class:'gday'+c,style:at(d,'width:'+(100/tot)+'%')}):null):h('div',{class:'gday',style:at(d,'width:'+(100/tot)+'%')})})}
   function head(){return days.map(function(d){
     var p=d.split('-'),first=p[2]==='01'||d===days[0];
     if(!daily&&dow(d)!==6&&!first)return null;
-    return h('div',{class:'ghd'+(dow(d)===0?' off':'')+(d===td?' now':''),style:at(d,'width:'+(daily?100/tot:700/tot)+'%')},
+    return h('div',{class:'ghd'+(dow(d)===OFF_DOW?' off':'')+(d===td?' now':''),style:at(d,'width:'+(daily?100/tot:700/tot)+'%')},
       h('b',null,daily?String(+p[2]):fd(d).slice(0,5)),daily?h('span',null,first?fd(d).slice(3,5)+'/':WD[dow(d)]):null)})}
   function seg(a,b,cls,label,title,fill){
     var w=Math.max(100/tot*.6,dayDiff(b,a)/tot*100);
