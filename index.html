@@ -1247,7 +1247,7 @@ function vSchedule(){
   function at(d,extra){return 'inset-inline-start:'+pos(d)+'%;'+(extra||'')}
   var days=[];for(var i=0;i<tot;i++)days.push(addDays(min,i));
   function dow(d){var p=d.split('-');return new Date(Date.UTC(+p[0],p[1]-1,+p[2])).getUTCDay()}
-  var WD=['ح','ن','ث','ر','خ','ج','س'];
+  var WD=['Su','Mo','Tu','We','Th','Fr','Sa'];
   function bg(){return days.map(function(d){var c=dow(d)===OFF_DOW?' off':'';return (c||!daily)?(c?h('div',{class:'gday'+c,style:at(d,'width:'+(100/tot)+'%')}):null):h('div',{class:'gday',style:at(d,'width:'+(100/tot)+'%')})})}
   function head(){return days.map(function(d){
     var p=d.split('-'),first=p[2]==='01'||d===days[0];
@@ -1306,7 +1306,7 @@ function vSchedule(){
       S.dv==='bracket'?null:h('span',null,h('b',{style:'background:var(--s-prod)'}),'إنتاج حديد'),S.dv==='steel'?null:h('span',null,h('b',{style:'background:var(--s-back)'}),'تصنيع براكت'),S.dv==='bracket'?null:h('span',null,h('b',{style:'background:var(--s-galv)'}),'جلفنة / بودر'),
       S.dv==='bracket'?null:h('span',null,h('b',{style:'background:var(--s-pack)'}),'تنظيف وفحص'),h('span',null,h('b',{class:'lg-wait'}),'مستني خامات'),
       h('span',null,h('b',{class:'lg-est'}),'تقديري (مش متحدد)'),h('span',null,h('b',{style:'background:var(--late);width:3px'}),'التسليم المطلوب'),
-      h('span',null,h('b',{style:'background:var(--accent);width:3px'}),'النهارده'),h('span',null,h('b',{class:'lg-off'}),'الأحد')),
+      h('span',null,h('b',{style:'background:var(--accent);width:3px'}),'النهارده'),h('span',null,h('b',{class:'lg-off'}),'Sunday')),
     shown.length?h('div',{class:'tablebox'},chart):empty('مفيش أوردرات بالفلتر ده',''),
     h('div',{class:'small-t'},'اضغط على أي أوردر عشان تفتحه وتحدد بدء ونهاية الإنتاج. لو في خامة ناقصة ليها ميعاد وصول، البدء بيتأجل لحد ما توصل.')
   ];
