@@ -360,6 +360,7 @@ function matPill(k){var m=MS[k];return h('span',{class:'pill',style:'--c:var(--s
 function matCell(x){return h('div',null,matPill(x.matSt),h('div',{class:'small-t num'},x.started?'بدأ '+fd(x.started):(x.closed?'':'بدء متوقع '+fd(x.start))))}
 function dueCell(x){return h('div',{class:'num'},fd(x.o.due),(!x.closed&&x.est&&!x.t.ready&&!x.t.deliv)?h('div',{class:'small-t auto'},'مقترح '+fd(x.est)):null)}
 var DIVS=[['steel','حديد'],['bracket','BRACKET (ألومنيوم / استانلس / اكسسوارات)']];
+var OWNERS={steel:['MUHAMMED SHAMEEJ','HANY AHMED'],bracket:['ATHIRESH KARAYI']};
 function divOf(o){return (o&&o.division)||'steel'}
 function isBr(o){return divOf(o)==='bracket'}
 function dTag(o){return o?h('span',{class:'dtag '+(isBr(o)?'br':'st')},isBr(o)?'BRACKET':'حديد'):null}
@@ -1785,10 +1786,14 @@ function openOrder(id){
   }
   var nextNo='ORD-'+String(D.orders.reduce(function(m,x){var r=/(\d+)\s*$/.exec(x.no||'');return r?Math.max(m,+r[1]):m},0)+1).padStart(3,'0');
   var f={no:inp('o-no','text',o?o.no:nextNo),pdate:inp('o-pdate','date',o?o.pdoDate||'':today()),title:inp('o-title','text',o?o.title:''),due:inp('o-due','date',o?o.due:''),site:inp('o-site','text',o?o.site:''),
-    owner:inp('o-owner','text',o?o.owner:''),division:sel('o-div',DIVS,o?divOf(o):(S.impdv||(S.dv==='bracket'?'bracket':'steel'))),status:sel('o-status',[['active','نشط'],['hold','موقوف'],['cancel','ملغي']],o?o.status||'active':'active'),
+    owner:h('select',{id:'o-owner'}),division:sel('o-div',DIVS,o?divOf(o):(S.impdv||(S.dv==='bracket'?'bracket':'steel'))),status:sel('o-status',[['active','نشط'],['hold','موقوف'],['cancel','ملغي']],o?o.status||'active':'active'),
     start:inp('o-start','date',o?o.startDate:''),pe:inp('o-pe','date',o?o.prodEnd||'':''),
     gd:inp('o-gd','number',o&&o.galvDays!=null?o.galvDays:'',{min:'0',placeholder:'3'}),fdd:inp('o-fd','number',o&&o.finDays!=null?o.finDays:'',{min:'0',placeholder:'2'}),
     notes:h('textarea',{id:'o-notes',value:o?o.notes||'':''})};
+  function fillOwners(keep){var dv=f.division.value,L=OWNERS[dv]||[],v=keep!=null?keep:f.owner.value;f.owner.innerHTML='';
+    [['','— اختار المسؤول —']].concat(L.map(function(n){return[n,n]})).concat(v&&L.indexOf(v)<0?[[v,v]]:[]).forEach(function(x){f.owner.appendChild(h('option',{value:x[0]},x[1]))});
+    f.owner.value=L.indexOf(v)>=0||(v&&keep!=null)?v:'';}
+  fillOwners(o?o.owner||'':'');f.division.addEventListener('change',function(){fillOwners('')});
   function upd(){
     var tmp=Object.assign({},o||{id:'__new'},{division:f.division.value,startDate:f.start.value,prodEnd:f.pe.value,galvDays:f.gd.value,finDays:f.fdd.value,
       items:items.map(itemFromRow).filter(function(i){return i.name&&i.qty>0})});
