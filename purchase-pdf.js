@@ -64,7 +64,7 @@
       if (short <= 0) return;
       var key = (m.code || '') + '|' + (m.name || '');
       if (!lines[key]) {
-        lines[key] = { code: m.code || '', name: m.name || '', unit: m.unit || '', qty: 0, projects: [] };
+        lines[key] = { code: m.code || '', name: m.name || '', unit: m.unit || '', qty: 0, projects: [], orderIds: [] };
         order.push(key);
       }
       var L = lines[key];
@@ -72,6 +72,7 @@
       var o = orders[m.orderId] || {};
       var proj = (o.site || o.title || '') + (o.no ? ' (' + o.no + ')' : '');
       if (proj && L.projects.indexOf(proj) < 0) L.projects.push(proj);
+      if (m.orderId && L.orderIds.indexOf(m.orderId) < 0) L.orderIds.push(m.orderId);
     });
     return order.map(function (k) {
       var L = lines[k];
@@ -89,7 +90,7 @@
         (orderId ? ' للأوردر ده' : '') + ' — غيّر الفلتر أو أضف سطر يدويًا</td></tr>';
     }
     return rows.map(function (r, i) {
-      return '<tr><td class="c">' + CK + '<span class="n">' + (i + 1) + '</span></td><td class="c" contenteditable>' + esc(r.code) +
+      return '<tr data-o="' + esc(r.orderIds.join(' ')) + '"><td class="c">' + CK + '<span class="n">' + (i + 1) + '</span></td><td class="c" contenteditable>' + esc(r.code) +
         '</td><td contenteditable>' + esc(r.name) + '</td><td contenteditable>' + esc(r.projects.join(', ')) +
         '</td><td class="c" contenteditable>' + esc(r.qty.toLocaleString('en-US')) +
         '</td><td class="c" contenteditable>' + esc(r.unit) + '</td></tr>';
@@ -125,7 +126,7 @@
       '.foot{position:fixed;left:0;right:0;bottom:0;width:100%}' +
       '.tools{direction:rtl;position:sticky;top:0;background:#FFF7E8;border:1px solid #E8C98A;border-radius:8px;padding:10px;margin:0 0 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;z-index:2}' +
       '.tools button{background:#B5481A;color:#fff;border:0;border-radius:6px;padding:7px 12px;font-size:13px;cursor:pointer}' +
-      '.tools button.sec{background:#fff;color:#333;border:1px solid #bbb}' +
+      '.tools button.sec{background:#fff;color:#333;border:1px solid #bbb}.tools button:disabled{opacity:.5;cursor:wait}' +
       '.tools input{padding:5px 7px;border:1px solid #bbb;border-radius:6px;font-size:13px}' +
       '.tools select{padding:5px 7px;border:1px solid #bbb;border-radius:6px;font-size:13px;max-width:280px}' +
       '.tools .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%}' +
@@ -144,6 +145,8 @@
       '<span style="color:#666">الأسطر اللي مش متعلّم عليها مش هتتطبع</span>' +
       '</div>' +
       '<button id="pr-print">🖨️ طباعة / حفظ PDF</button>' +
+      '<button id="pr-save" title="يحفظ نسخة PDF في تاب الملفات على الأوردر">💾 احفظ في ملفات الأوردر</button>' +
+      '<span id="pr-msg" role="status" style="font-weight:700"></span>' +
       '<button class="sec" id="pr-add">+ سطر</button>' +
       '<button class="sec" id="pr-del">− آخر سطر</button>' +
       '<label><input type="checkbox" id="pr-urgent" checked> URGENT</label>' +
@@ -159,6 +162,116 @@
       '<div class="sig"><div><b>Requested by:</b> <span id="pr-sig">' + esc(name) + '</span></div><div><b>Approved by:</b> ____________________</div></div>' +
       '<img class="foot" src="' + FOOTER + '" alt="">' +
       '</body></html>';
+  }
+
+  /* ---------- Save a PDF copy into the order's files ---------- */
+  var LIBS = [
+    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+  ];
+  function loadLibs(win) {
+    return LIBS.reduce(function (p, src) {
+      return p.then(function () {
+        if (src.indexOf('html2canvas') > 0 ? win.html2canvas : (win.jspdf && win.jspdf.jsPDF)) return;
+        return new Promise(function (res, rej) {
+          var s = win.document.createElement('script');
+          s.src = src; s.onload = res;
+          s.onerror = function () { rej(new Error('تعذر تحميل أداة الـPDF. اتأكد من النت وجرّب تاني.')); };
+          win.document.head.appendChild(s);
+        });
+      });
+    }, Promise.resolve());
+  }
+  function imgSize(win, src) {
+    return new Promise(function (res) {
+      var i = new win.Image();
+      i.onload = function () { res({ w: i.naturalWidth, h: i.naturalHeight }); };
+      i.onerror = function () { res(null); };
+      i.src = src;
+    });
+  }
+
+  // Renders exactly what would print (ticked rows, edited cells) to an A4 PDF Blob,
+  // with the letterhead footer on every page and page breaks between table rows.
+  function buildPdf(doc) {
+    var win = doc.defaultView;
+    return loadLibs(win).then(function () {
+      var W = 760; // content width in CSS px
+      var cap = doc.createElement('div');
+      cap.style.cssText = 'position:absolute;left:-10000px;top:0;width:' + W + 'px;background:#fff;padding:0';
+      ['.logo', 'h1', '.info', 'table', '.sig'].forEach(function (sel) {
+        var el = doc.querySelector(sel); if (el) cap.appendChild(el.cloneNode(true));
+      });
+      [].forEach.call(cap.querySelectorAll('tr.off, tr.empty, .ck'), function (e) { e.remove(); });
+      [].forEach.call(cap.querySelectorAll('[contenteditable]'), function (e) { e.removeAttribute('contenteditable'); });
+      doc.body.appendChild(cap);
+      var top = cap.getBoundingClientRect().top;
+      var breaks = [].map.call(cap.querySelectorAll('tbody tr, .sig'), function (e) { return e.getBoundingClientRect().bottom - top; });
+      return Promise.all([win.html2canvas(cap, { scale: 2, backgroundColor: '#ffffff' }), imgSize(win, FOOTER)]).then(function (r) {
+        cap.remove();
+        var canvas = r[0], foot = r[1];
+        var pdf = new win.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+        var PW = 210, PH = 297, M = 12;
+        var footH = foot ? PW * foot.h / foot.w : 0;
+        var mmPerPx = (PW - 2 * M) / W, availPx = (PH - M - footH - 4) / mmPerPx;
+        var scale = canvas.width / W, y = 0, total = canvas.height / scale, page = 0;
+        while (y < total - 1) {
+          var end = Math.min(total, y + availPx);
+          if (end < total) {
+            var fit = breaks.filter(function (b) { return b > y + 20 && b <= end; });
+            if (fit.length) end = fit[fit.length - 1];
+          }
+          var slice = doc.createElement('canvas');
+          slice.width = canvas.width; slice.height = Math.ceil((end - y) * scale);
+          slice.getContext('2d').drawImage(canvas, 0, Math.floor(y * scale), canvas.width, slice.height, 0, 0, canvas.width, slice.height);
+          if (page++) pdf.addPage();
+          pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', M, M, PW - 2 * M, (end - y) * mmPerPx);
+          if (foot) pdf.addImage(FOOTER, 'JPEG', 0, PH - footH, PW, footH);
+          y = end;
+        }
+        return pdf.output('blob');
+      });
+    });
+  }
+
+  function saveToFiles(doc) {
+    var $ = function (id) { return doc.getElementById(id); };
+    var msg = $('pr-msg'), btn = $('pr-save');
+    function say(t, ok) { msg.textContent = t; msg.style.color = ok ? '#1F7A3A' : '#B00020'; }
+    var app = window.MX_APP;
+    if (!app || !app.saveDoc) { say('حدّث صفحة الموقع الأول (Ctrl+Shift+R) وافتح الطلب تاني.'); return; }
+    var rows = [].slice.call($('pr-body').querySelectorAll('tr:not(.empty):not(.off)'));
+    if (!rows.length) { say('مفيش ولا سطر متعلّم عليه.'); return; }
+    var ids = [];
+    if ($('pr-order').value) ids = [$('pr-order').value];
+    else rows.forEach(function (tr) {
+      (tr.getAttribute('data-o') || '').split(' ').forEach(function (id) { if (id && ids.indexOf(id) < 0) ids.push(id); });
+    });
+    if (!ids.length) { say('اختار الأوردر من فوق عشان أعرف أحفظه فين.'); return; }
+    var d = readData(), orders = {};
+    (d.orders || []).forEach(function (o) { orders[o.id] = o; });
+    var dateIso = $('pr-date').value || today();
+    var names = rows.map(function (tr) { return (tr.cells[2].textContent || '').trim(); }).filter(Boolean);
+    var note = 'طلب شراء: ' + names.slice(0, 3).join(' / ') + (names.length > 3 ? ' + ' + (names.length - 3) + ' كمان' : '');
+    btn.disabled = true; say('جاري تجهيز الـPDF...', true);
+    buildPdf(doc).then(function (blob) {
+      return blob.arrayBuffer();
+    }).then(function (buf) {
+      say('جاري الحفظ...', true);
+      return ids.reduce(function (p, id) {
+        return p.then(function () {
+          var o = orders[id] || {};
+          var fname = 'Purchase Request ' + dateIso + (o.no ? ' - ' + o.no : '') + '.pdf';
+          // Blob made in this window, so the app stores it without cross-window issues.
+          return app.saveDoc(id, new Blob([buf], { type: 'application/pdf' }), fname, 'pr', note);
+        });
+      }, Promise.resolve());
+    }).then(function () {
+      var labels = ids.map(function (id) { return (orders[id] && orders[id].no) || id; });
+      say('✓ اتحفظ في ملفات أوردر ' + labels.join('، ') + ' (نوع: طلبات الشراء).', true);
+    }).catch(function (e) {
+      say('تعذر الحفظ: ' + ((e && e.message) || 'جرّب تاني.'));
+    }).then(function () { btn.disabled = false; });
   }
 
   function wire(doc) {
@@ -194,6 +307,7 @@
       if (!$('pr-body').querySelector('tr:not(.empty):not(.off)')) { doc.defaultView.alert('مفيش ولا سطر متعلّم عليه للطباعة'); return; }
       doc.defaultView.print();
     };
+    $('pr-save').onclick = function () { saveToFiles(doc); };
     $('pr-add').onclick = function () {
       var e = $('pr-body').querySelector('.empty'); if (e) e.remove();
       var tr = doc.createElement('tr');
@@ -241,7 +355,7 @@
     }
   }
 
-  window.MX_PR_PDF = { build: buildHTML, collect: collect, open: openRequest };
+  window.MX_PR_PDF = { build: buildHTML, collect: collect, open: openRequest, wire: wire, pdf: buildPdf };
   new MutationObserver(inject).observe(document.documentElement, { childList: true, subtree: true });
   if (document.readyState !== 'loading') inject(); else document.addEventListener('DOMContentLoaded', inject);
 })();

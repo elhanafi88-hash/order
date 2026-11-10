@@ -1916,7 +1916,7 @@ function openDetail(id){
 
 
 /* ---------- order files ---------- */
-var DK=[['order','أوراق الأوردر'],['drawing','رسومات'],['cert','شهادات الخامات'],['dn','أذونات التسليم (DN)'],['other','أخرى']];
+var DK=[['order','أوراق الأوردر'],['drawing','رسومات'],['cert','شهادات الخامات'],['dn','أذونات التسليم (DN)'],['pr','طلبات الشراء'],['other','أخرى']];
 function recDocs(id){return (D.docs||[]).filter(function(d){return d.recId===id}).sort(function(a,b){return (a.createdAt||'').localeCompare(b.createdAt||'')})}
 var EXT={pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',txt:'text/plain',csv:'text/csv',json:'application/json',md:'text/markdown',mp4:'video/mp4',webm:'video/webm'};
 function fsize(b){b=n(b);return b>=1048576?(b/1048576).toFixed(1)+' MB':Math.max(1,Math.round(b/1024))+' KB'}
@@ -2404,6 +2404,15 @@ function boot(d,dwn){
     notice(old?'خد نسخة احتياطية من زرار 💾 فوق'+(lb?' (آخر نسخة '+fd(lb.slice(0,10))+')':'')+'.':'')}
   render();
 }
+/* Used by purchase-pdf.js: keep a copy of a purchase request in the order's files. */
+window.MX_APP={saveDoc:function(orderId,blob,name,kind,note){
+  if(!as)return Promise.reject(new Error('رفع الملفات مش متاح هنا.'));
+  if(!orderOf(orderId))return Promise.reject(new Error('الأوردر مش موجود.'));
+  return as.upload(blob,{type:blob.type||'application/pdf'}).then(function(r){
+    var rec={id:newId(),orderId:orderId,itemId:'',kind:kind||'other',note:note||undefined,name:name,assetId:r.id,size:r.sizeBytes,type:r.contentType,date:today(),createdAt:new Date().toISOString()};
+    D.docs.push(rec);return persist('docs',rec);
+  });
+}};
 var use=window.claude&&window.claude.use;
 if(use){
   Promise.all([window.claude.use('db').catch(function(){return null}),window.claude.use('downloads').catch(function(){return null})]).then(function(r){boot(r[0],r[1])});
