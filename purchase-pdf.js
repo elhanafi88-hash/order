@@ -27,14 +27,39 @@
     try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; }
   }
 
+  function orderLabel(o) {
+    return (o.no ? o.no + ' · ' : '') + (o.title || o.site || '');
+  }
+
+  // Outstanding requested materials (optionally limited to one date and/or one order).
+  function pendingMats(d, dateIso, orderId) {
+    return (d.mats || []).filter(function (m) {
+      if (!m.reqDate || (dateIso && m.reqDate !== dateIso)) return false;
+      if (orderId && m.orderId !== orderId) return false;
+      return (Number(m.required) || 0) - (Number(m.received) || 0) > 0;
+    });
+  }
+
+  // Orders that have outstanding requests on that date — for the order filter.
+  function ordersFor(dateIso) {
+    var d = readData(), seen = {}, list = [];
+    var orders = {};
+    (d.orders || []).forEach(function (o) { orders[o.id] = o; });
+    pendingMats(d, dateIso, '').forEach(function (m) {
+      if (!m.orderId || seen[m.orderId]) return;
+      seen[m.orderId] = 1;
+      list.push({ id: m.orderId, label: orderLabel(orders[m.orderId] || {}) || m.orderId });
+    });
+    return list.sort(function (a, b) { return a.label.localeCompare(b.label, 'en', { numeric: true }); });
+  }
+
   // One line per material code: total outstanding qty + the projects that need it.
-  function collect(dateIso) {
+  function collect(dateIso, orderId) {
     var d = readData();
     var orders = {};
     (d.orders || []).forEach(function (o) { orders[o.id] = o; });
     var lines = {}, order = [];
-    (d.mats || []).forEach(function (m) {
-      if (!m.reqDate || (dateIso && m.reqDate !== dateIso)) return;
+    pendingMats(d, dateIso, orderId).forEach(function (m) {
       var short = (Number(m.required) || 0) - (Number(m.received) || 0);
       if (short <= 0) return;
       var key = (m.code || '') + '|' + (m.name || '');
@@ -55,17 +80,33 @@
     });
   }
 
-  function buildHTML(dateIso) {
-    var rows = collect(dateIso);
-    var name = '';
-    try { name = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
-    var body = rows.map(function (r, i) {
-      return '<tr><td class="c n">' + (i + 1) + '</td><td class="c" contenteditable>' + esc(r.code) +
+  var CK = '<input type="checkbox" class="ck" checked title="اطبع السطر ده">';
+
+  function bodyHTML(dateIso, orderId) {
+    var rows = collect(dateIso, orderId);
+    if (!rows.length) {
+      return '<tr class="empty"><td colspan="6">لا توجد طلبات' + (dateIso ? ' بتاريخ ' + esc(fmtDate(dateIso)) : '') +
+        (orderId ? ' للأوردر ده' : '') + ' — غيّر الفلتر أو أضف سطر يدويًا</td></tr>';
+    }
+    return rows.map(function (r, i) {
+      return '<tr><td class="c">' + CK + '<span class="n">' + (i + 1) + '</span></td><td class="c" contenteditable>' + esc(r.code) +
         '</td><td contenteditable>' + esc(r.name) + '</td><td contenteditable>' + esc(r.projects.join(', ')) +
         '</td><td class="c" contenteditable>' + esc(r.qty.toLocaleString('en-US')) +
         '</td><td class="c" contenteditable>' + esc(r.unit) + '</td></tr>';
     }).join('');
-    if (!rows.length) body = '<tr class="empty"><td colspan="6">لا توجد طلبات بتاريخ ' + esc(fmtDate(dateIso)) + ' — أضف سطر يدويًا</td></tr>';
+  }
+
+  function orderOptions(dateIso, orderId) {
+    return '<option value="">كل الأوردرات</option>' + ordersFor(dateIso).map(function (o) {
+      return '<option value="' + esc(o.id) + '"' + (o.id === orderId ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+    }).join('');
+  }
+
+  function buildHTML(dateIso, orderId) {
+    dateIso = dateIso == null ? today() : dateIso;
+    var body = bodyHTML(dateIso, orderId);
+    var name = '';
+    try { name = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
 
     return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Material Purchase Request ' + esc(fmtDate(dateIso)) + '</title>' +
       '<style>' +
@@ -86,10 +127,22 @@
       '.tools button{background:#B5481A;color:#fff;border:0;border-radius:6px;padding:7px 12px;font-size:13px;cursor:pointer}' +
       '.tools button.sec{background:#fff;color:#333;border:1px solid #bbb}' +
       '.tools input{padding:5px 7px;border:1px solid #bbb;border-radius:6px;font-size:13px}' +
+      '.tools select{padding:5px 7px;border:1px solid #bbb;border-radius:6px;font-size:13px;max-width:280px}' +
+      '.tools .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%}' +
+      '.ck{margin:0 4px 0 0;vertical-align:middle;cursor:pointer}' +
+      'tr.off td{opacity:.35;text-decoration:line-through}' +
       '[contenteditable]:focus{outline:2px solid #E8C98A}' +
-      '@media print{.tools{display:none}body{padding:0 0 150px}[contenteditable]{outline:none}}' +
+      '@media print{.tools,.ck{display:none}tr.off{display:none}body{padding:0 0 150px}[contenteditable]{outline:none}}' +
       '</style></head><body>' +
       '<div class="tools">' +
+      '<div class="row">' +
+      '<label>التاريخ: <input type="date" id="pr-date" value="' + esc(dateIso) + '"></label>' +
+      '<button class="sec" id="pr-all-dates" title="كل الطلبات اللي لسه ما وصلتش">كل التواريخ</button>' +
+      '<label>الأوردر: <select id="pr-order">' + orderOptions(dateIso, orderId) + '</select></label>' +
+      '<button class="sec" id="pr-check-all">تحديد الكل</button>' +
+      '<button class="sec" id="pr-check-none">إلغاء التحديد</button>' +
+      '<span style="color:#666">الأسطر اللي مش متعلّم عليها مش هتتطبع</span>' +
+      '</div>' +
       '<button id="pr-print">🖨️ طباعة / حفظ PDF</button>' +
       '<button class="sec" id="pr-add">+ سطر</button>' +
       '<button class="sec" id="pr-del">− آخر سطر</button>' +
@@ -99,7 +152,7 @@
       '</div>' +
       '<img class="logo" src="' + LOGO + '" alt="METAPLEX">' +
       '<h1>MATERIAL PURCHASE REQUEST<span class="u" id="pr-u"> - URGENT</span></h1>' +
-      '<div class="info"><b>Date:</b><span>' + esc(fmtDate(dateIso)) + '</span><b>Required by:</b><span id="pr-req" class="urg" contenteditable>URGENT</span>' +
+      '<div class="info"><b>Date:</b><span id="pr-dt" contenteditable>' + esc(fmtDate(dateIso || today())) + '</span><b>Required by:</b><span id="pr-req" class="urg" contenteditable>URGENT</span>' +
       '<b>To:</b><span contenteditable>Purchasing Department</span><b></b><span></span></div>' +
       '<table><thead><tr><th style="width:5%">#</th><th style="width:9%">Code</th><th>Material</th><th style="width:28%">Project</th><th style="width:9%">Qty</th><th style="width:8%">Unit</th></tr></thead>' +
       '<tbody id="pr-body">' + body + '</tbody></table>' +
@@ -110,14 +163,41 @@
 
   function wire(doc) {
     var $ = function (id) { return doc.getElementById(id); };
+    // Only ticked rows get a number (and get printed).
     function renumber() {
-      [].forEach.call($('pr-body').querySelectorAll('tr:not(.empty)'), function (tr, i) { tr.cells[0].textContent = i + 1; });
+      var n = 0;
+      [].forEach.call($('pr-body').querySelectorAll('tr:not(.empty)'), function (tr) {
+        var ck = tr.querySelector('.ck'), on = !ck || ck.checked;
+        tr.classList.toggle('off', !on);
+        var s = tr.querySelector('.n'); if (s) s.textContent = on ? ++n : '';
+      });
     }
-    $('pr-print').onclick = function () { doc.defaultView.print(); };
+    function refresh() {
+      var dateIso = $('pr-date').value, orderId = $('pr-order').value;
+      $('pr-order').innerHTML = orderOptions(dateIso, orderId);
+      if ($('pr-order').value !== orderId) orderId = '';
+      $('pr-body').innerHTML = bodyHTML(dateIso, orderId);
+      if (dateIso) $('pr-dt').textContent = fmtDate(dateIso);
+      renumber();
+    }
+    function checkAll(on) {
+      [].forEach.call($('pr-body').querySelectorAll('.ck'), function (c) { c.checked = on; });
+      renumber();
+    }
+    $('pr-body').addEventListener('change', function (e) { if (e.target.classList.contains('ck')) renumber(); });
+    $('pr-date').onchange = refresh;
+    $('pr-order').onchange = refresh;
+    $('pr-all-dates').onclick = function () { $('pr-date').value = ''; refresh(); };
+    $('pr-check-all').onclick = function () { checkAll(true); };
+    $('pr-check-none').onclick = function () { checkAll(false); };
+    $('pr-print').onclick = function () {
+      if (!$('pr-body').querySelector('tr:not(.empty):not(.off)')) { doc.defaultView.alert('مفيش ولا سطر متعلّم عليه للطباعة'); return; }
+      doc.defaultView.print();
+    };
     $('pr-add').onclick = function () {
       var e = $('pr-body').querySelector('.empty'); if (e) e.remove();
       var tr = doc.createElement('tr');
-      tr.innerHTML = '<td class="c n"></td><td class="c" contenteditable></td><td contenteditable></td><td contenteditable></td><td class="c" contenteditable></td><td class="c" contenteditable>PCS</td>';
+      tr.innerHTML = '<td class="c">' + CK + '<span class="n"></span></td><td class="c" contenteditable></td><td contenteditable></td><td contenteditable></td><td class="c" contenteditable></td><td class="c" contenteditable>PCS</td>';
       $('pr-body').appendChild(tr); renumber(); tr.cells[1].focus();
     };
     $('pr-del').onclick = function () {
@@ -136,13 +216,12 @@
     };
   }
 
-  function openRequest() {
-    var dateIso = window.prompt('تاريخ الطلبات اللي عايزها في الملف (YYYY-MM-DD)\nسيبه فاضي عشان كل الطلبات اللي لسه ما وصلتش', today());
-    if (dateIso === null) return;
-    dateIso = dateIso.trim();
+  // Opens straight away on today's requests; date / order / lines are picked inside the window.
+  function openRequest(dateIso, orderId) {
+    if (typeof dateIso !== 'string') dateIso = today();
     var w = window.open('', '_blank');
     if (!w) { alert('المتصفح منع فتح نافذة جديدة — اسمح بالـ popups للموقع ده'); return; }
-    w.document.open(); w.document.write(buildHTML(dateIso)); w.document.close();
+    w.document.open(); w.document.write(buildHTML(dateIso, orderId || '')); w.document.close();
     wire(w.document);
   }
 
