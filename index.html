@@ -899,7 +899,7 @@ function openRequest(m){
    Reserving X for an order line moves X out of the store into that line: stock.qty -= X, mat.received += X, mat.fromStock += X.
    So every other sheet (materials, purchase, tracking) keeps reading mat.received as before. */
 THG['g-prod']=THG['g-prod'].concat(['في المخزن','مطلوب للأوردرات','متوفر للأوردرات','ناقص في الأوردرات','بعد المخزن','محجوز من المخزن','منه من المخزن']);
-var MVL={first:'رصيد أول',in:'وارد للمخزن',alloc:'حجز لأوردر',rel:'فك حجز',ret:'رجوع للمخزن',adj:'جرد / تسوية'};
+var MVL={first:'رصيد أول',in:'كمية جديدة دخلت',alloc:'حجز لأوردر',rel:'فك حجز',ret:'رجوع للمخزن',adj:'تصحيح رصيد'};
 function sk(c){return String(c==null?'':c).trim()}
 function r3(v){return Math.round(v*1000)/1000}
 /* each division (steel / bracket) has its own store: a stock doc belongs to one division */
@@ -974,7 +974,7 @@ function vStore(){
       tile('خامات في '+whName,String(all.length),null,'info'),
       tile('ممكن تحجز منها دلوقتي',String(nAlloc),'المخزن فيه منها وفي أوردرات ناقصاها','ok'),
       tile('محتاج شراء',String(nShort),'حتى بعد اللي في المخزن',nShort?'late':'ok'));
-  if(!rows.length)return [dvb,tiles,bar,info,empty(all.length?'مفيش خامات بالفلتر ده':'المخزن فاضي','الخامات اللي في الأوردرات بتظهر هنا لوحدها بالكود. ضيف رصيدك من زرار "+ خامة للمخزن" أو "+ وارد".')];
+  if(!rows.length)return [dvb,tiles,bar,info,empty(all.length?'مفيش خامات بالفلتر ده':'المخزن فاضي','الخامات اللي في الأوردرات بتظهر هنا لوحدها بالكود. ضيف رصيدك من زرار "+ خامة للمخزن" أو "➕ زوّد كمية".')];
   var t=tbl(['كود الخامة','الخامة','الوحدة','في المخزن','مطلوب للأوردرات','متوفر للأوردرات','ناقص في الأوردرات','بعد المخزن','الحالة',''],rows.map(function(r){
     var tr=row([
       h('div',null,h('b',{class:'num'},r.code),h('div',null,dvTag(r.div))),
@@ -986,9 +986,9 @@ function vStore(){
       storePill(r),
       h('div',{class:'bar'},
         (r.lines.length&&(r.free>0||r.lines.some(function(m){return n(m.fromStock)>0})))?h('button',{class:'btn small primary',type:'button',onclick:function(){openAlloc(r.code,r.div)}},'حجز لأوردر'):null,
-        h('button',{class:'btn small',type:'button',onclick:function(){openStockIn(r)}},'+ وارد'),
-        h('button',{class:'btn small',type:'button',onclick:function(){openStockCount(r)}},'جرد'),
-        r.s?h('button',{class:'btn small',type:'button',onclick:function(){openStockLog(r.code,r.div)}},'الحركة'):null,
+        h('button',{class:'btn small',type:'button',title:'لما توصل كمية جديدة للمخزن (من المورد مثلًا)',onclick:function(){openStockIn(r)}},'➕ زوّد كمية'),
+        h('button',{class:'btn small',type:'button',title:'لو عدّيت الخامة ولقيت الرقم مختلف عن السيستم',onclick:function(){openStockCount(r)}},'✎ صحّح الرصيد'),
+        r.s?h('button',{class:'btn small',type:'button',title:'كل اللي دخل وخرج من الخامة دي',onclick:function(){openStockLog(r.code,r.div)}},'📋 السجل'):null,
         r.s&&!r.lines.length&&!(r.free>0)?delBtn('مسح',function(){remove('stock',r.s.id)}):null)
     ],r.div==='bracket'?'rowbr':'');
     return tr;
@@ -1003,7 +1003,7 @@ function openStockNew(){
     h('div',{class:'grid'},fld('المخزن (القسم)',dv),fld('كود الخامة',c),fld('الخامة',nm,true),fld('الوحدة',u),fld('الرصيد الموجود دلوقتي',q)),err,
     h('div',{class:'actions'},h('button',{class:'btn primary',type:'button',onclick:function(){
       var k=sk(c.value);if(!k){err.textContent='اكتب كود الخامة.';return}
-      if(stockOf(k,dv.value)){err.textContent='الكود ده موجود في المخزن ده. استخدم "+ وارد" أو "جرد".';return}
+      if(stockOf(k,dv.value)){err.textContent='الكود ده موجود في المخزن ده. استخدم "➕ زوّد كمية" أو "✎ صحّح الرصيد".';return}
       if(!nm.value.trim()){err.textContent='اكتب اسم الخامة.';return}
       moveStock(k,dv.value,nm.value.trim(),u.value.trim(),n(q.value),{t:'first'});closeModal();
     }},'حفظ'),h('button',{class:'btn',type:'button',onclick:closeModal},'إغلاق'))));
@@ -1012,11 +1012,11 @@ function openStockNew(){
 function whOf(r){return r.div==='bracket'?'مخزن BRACKET':'مخزن الحديد'}
 function openStockIn(r){
   var err=h('div',{class:'msg',role:'alert'}),q=inp('si-q','number','',{min:'0',step:'any'}),d=inp('si-d','date',today()),nt=inp('si-n','text','',{placeholder:'المورد / رقم الإذن (اختياري)'});
-  openModal('وارد ل'+whOf(r),h('div',null,h('div',{class:'small-t'},r.code+' · '+(r.name||'')+' — في المخزن دلوقتي '+fq(r.free)+' '+(r.unit||'')+(r.sh?' · ناقص في الأوردرات '+fq(r.sh):'')),
-    h('div',{class:'grid',style:'margin-top:10px'},fld('الكمية الواردة',q),fld('تاريخ الوارد',d),fld('ملاحظة',nt,true)),err,
-    h('div',{class:'small-t'},'الوارد بيدخل المخزن حر. بعد كده احجز منه للأوردرات اللي ليها الأولوية.'),
+  openModal('زوّد كمية في '+whOf(r),h('div',null,h('div',{class:'small-t'},r.code+' · '+(r.name||'')+' — في المخزن دلوقتي '+fq(r.free)+' '+(r.unit||'')+(r.sh?' · ناقص في الأوردرات '+fq(r.sh):'')),
+    h('div',{class:'grid',style:'margin-top:10px'},fld('الكمية اللي وصلت',q),fld('تاريخ الوصول',d),fld('ملاحظة',nt,true)),err,
+    h('div',{class:'small-t'},'الكمية دي بتدخل المخزن من غير ما تتحجز لأوردر. بعد كده احجز منه للأوردرات اللي ليها الأولوية.'),
     h('div',{class:'actions'},h('button',{class:'btn primary',type:'button',onclick:function(){
-      var v=n(q.value);if(!(v>0)){err.textContent='اكتب الكمية الواردة.';return}
+      var v=n(q.value);if(!(v>0)){err.textContent='اكتب الكمية اللي وصلت.';return}
       moveStock(r.code,r.div,r.name,r.unit,v,{t:'in',date:d.value||today(),note:nt.value.trim()});closeModal();
       if(r.sh>0)setTimeout(function(){openAlloc(r.code,r.div,v)},60);
     }},r.sh>0?'حفظ وروح للحجز':'حفظ'),h('button',{class:'btn',type:'button',onclick:closeModal},'إغلاق'))));
@@ -1024,10 +1024,10 @@ function openStockIn(r){
 }
 function openStockCount(r){
   var err=h('div',{class:'msg',role:'alert'}),q=inp('sc-q','number',r.free,{min:'0',step:'any'}),nt=inp('sc-n','text','',{placeholder:'سبب الفرق (اختياري)'});
-  openModal('جرد '+whOf(r),h('div',null,h('div',{class:'small-t'},r.code+' · '+(r.name||'')+' — السيستم بيقول في المخزن '+fq(r.free)+' '+(r.unit||'')),
-    h('div',{class:'grid',style:'margin-top:10px'},fld('الموجود فعلًا (من غير المحجوز للأوردرات)',q),fld('ملاحظة',nt)),err,
+  openModal('صحّح الرصيد في '+whOf(r),h('div',null,h('div',{class:'small-t'},r.code+' · '+(r.name||'')+' — السيستم بيقول في المخزن '+fq(r.free)+' '+(r.unit||'')),
+    h('div',{class:'grid',style:'margin-top:10px'},fld('العدد اللي لقيته فعلًا في المخزن (من غير المحجوز للأوردرات)',q),fld('ملاحظة',nt)),err,
     h('div',{class:'actions'},h('button',{class:'btn primary',type:'button',onclick:function(){
-      if(q.value===''||n(q.value)<0){err.textContent='اكتب الرصيد الفعلي.';return}
+      if(q.value===''||n(q.value)<0){err.textContent='اكتب العدد اللي لقيته فعلًا.';return}
       var dlt=r3(n(q.value)-r.free);if(!dlt){closeModal();return}
       moveStock(r.code,r.div,r.name,r.unit,dlt,{t:'adj',note:nt.value.trim()});closeModal();
     }},'حفظ'),h('button',{class:'btn',type:'button',onclick:closeModal},'إغلاق'))));
@@ -2484,8 +2484,9 @@ Object.assign(DICT,{"القسم": "Division", "حديد": "Steel", "التقري
 Object.assign(DICT,{"إنتاج حديد": "Steel production", "تصنيع براكت": "Bracket manufacturing"});
 Object.assign(DICT,{"في المخزن دلوقتي": "In store now", "هيفضل في المخزن": "Left in store", "ناقص في الأوردرات": "Short in orders", "بعد الحجز (كان": "after reserving (was", "التغطية بعد الحجز": "Coverage after reserving", "الناقص بعده": "Short after", "كمية الحجز": "Reserve qty", "كمّل": "Fill", "الحجز ده بيغطي": "This reservation covers", "ناقصين في الأوردرات": "short in orders", "منه": "of which", "وحدات مختلفة:": "Mixed units:", "الكمية أكبر من اللي في المخزن بـ": "Quantity exceeds the store by"});
 Object.assign(DICT,{"متغطي":"covered"});
-Object.assign(DICT,{"مخزن الحديد": "Steel store", "مخزن BRACKET": "BRACKET store", "المخزنين": "both stores", "المخزن:": "Store:", "المخزن (القسم)": "Store (division)", "خامات في": "Materials in", "كل قسم ليه مخزنه وخاماته، وأوردرات القسم بتحجز من مخزنه بس.": "Each division has its own store and materials; its orders reserve from its own store only.", "وارد ل": "Stock in to ", "جرد": "Count", "حجز من": "Reserve from"});
-Object.assign(DICT,{"المخزن": "Store", "في المخزن": "In store", "مطلوب للأوردرات": "Needed by orders", "متوفر للأوردرات": "Covered for orders", "ناقص في الأوردرات": "Short in orders", "بعد المخزن": "After store", "حجز لأوردر": "Reserve for order", "حجز من المخزن": "Reserve from store", "من المخزن": "From store", "+ وارد": "+ Stock in", "جرد": "Count", "الحركة": "Move", "+ خامة للمخزن": "+ Store material", "خامة جديدة للمخزن": "New store material", "الرصيد الموجود دلوقتي": "Quantity on hand now", "وارد للمخزن": "Stock in", "الكمية الواردة": "Quantity in", "تاريخ الوارد": "Date in", "حفظ وروح للحجز": "Save and reserve", "جرد المخزن": "Store count", "الموجود فعلًا (من غير المحجوز للأوردرات)": "Actual on hand (excluding reserved)", "حركة المخزن": "Store moves", "رصيد أول": "Opening balance", "فك حجز": "Unreserve", "رجوع للمخزن": "Returned to store", "جرد / تسوية": "Count / adjustment", "حفظ الحجز": "Save reservation", "محجوز من المخزن": "Reserved from store", "منه من المخزن": "Of which from store", "كمّل الناقص": "Fill shortage", "ممكن تحجز منها": "Can reserve", "محتاج شراء": "Need to buy", "موجود في المخزن": "In stock", "خامات في الشيت": "Materials", "ممكن تحجز منها دلوقتي": "Can reserve now", "المخزن فاضي": "Store is empty", "ناقص — محتاج شراء": "Short — need to buy", "المخزن يكفي — احجز": "Store covers it — reserve", "المخزن يكفي جزء": "Store covers part", "الأوردرات مكتملة": "Orders covered", "مش مطلوبة دلوقتي": "Not needed now", "ناقص في:": "Short in:", "يفضل": "left", "هيتحجز": "Will reserve", "هيرجع للمخزن": "Will return to store", "هيفضل في المخزن": "Left in store", "دور بالكود أو اسم الخامة": "Search code or material name", "مفيش حركة لسه": "No moves yet", "مسح أوردر": "Order deleted", "مسح خامة من أوردر": "Material removed from order", "المخزن مش مكفي. المتاح": "Not enough in store. Available"});
+Object.assign(DICT,{"مخزن الحديد": "Steel store", "مخزن BRACKET": "BRACKET store", "المخزنين": "both stores", "المخزن:": "Store:", "المخزن (القسم)": "Store (division)", "خامات في": "Materials in", "كل قسم ليه مخزنه وخاماته، وأوردرات القسم بتحجز من مخزنه بس.": "Each division has its own store and materials; its orders reserve from its own store only.", "وارد ل": "Stock in to ", "✎ صحّح الرصيد": "✎ Fix balance", "حجز من": "Reserve from"});
+Object.assign(DICT,{"زوّد كمية في ": "Add quantity to ", "صحّح الرصيد في ": "Fix balance in ", "الكمية اللي وصلت": "Quantity received", "تاريخ الوصول": "Date received", "كمية جديدة دخلت": "New quantity in", "تصحيح رصيد": "Balance fix", "العدد اللي لقيته فعلًا في المخزن (من غير المحجوز للأوردرات)": "Actual count in store (excluding reserved)", "اكتب الكمية اللي وصلت.": "Enter the quantity received.", "اكتب العدد اللي لقيته فعلًا.": "Enter the actual count.", "لما توصل كمية جديدة للمخزن (من المورد مثلًا)": "When new stock arrives (e.g. from a supplier)", "لو عدّيت الخامة ولقيت الرقم مختلف عن السيستم": "If your physical count differs from the system", "كل اللي دخل وخرج من الخامة دي": "Everything in and out for this material"});
+Object.assign(DICT,{"المخزن": "Store", "في المخزن": "In store", "مطلوب للأوردرات": "Needed by orders", "متوفر للأوردرات": "Covered for orders", "ناقص في الأوردرات": "Short in orders", "بعد المخزن": "After store", "حجز لأوردر": "Reserve for order", "حجز من المخزن": "Reserve from store", "من المخزن": "From store", "➕ زوّد كمية": "➕ Add quantity", "✎ صحّح الرصيد": "✎ Fix balance", "📋 السجل": "📋 History", "+ خامة للمخزن": "+ Store material", "خامة جديدة للمخزن": "New store material", "الرصيد الموجود دلوقتي": "Quantity on hand now", "وارد للمخزن": "Stock in", "الكمية الواردة": "Quantity in", "تاريخ الوارد": "Date in", "حفظ وروح للحجز": "Save and reserve", "جرد المخزن": "Store count", "الموجود فعلًا (من غير المحجوز للأوردرات)": "Actual on hand (excluding reserved)", "حركة المخزن": "Store moves", "رصيد أول": "Opening balance", "فك حجز": "Unreserve", "رجوع للمخزن": "Returned to store", "جرد / تسوية": "Count / adjustment", "حفظ الحجز": "Save reservation", "محجوز من المخزن": "Reserved from store", "منه من المخزن": "Of which from store", "كمّل الناقص": "Fill shortage", "ممكن تحجز منها": "Can reserve", "محتاج شراء": "Need to buy", "موجود في المخزن": "In stock", "خامات في الشيت": "Materials", "ممكن تحجز منها دلوقتي": "Can reserve now", "المخزن فاضي": "Store is empty", "ناقص — محتاج شراء": "Short — need to buy", "المخزن يكفي — احجز": "Store covers it — reserve", "المخزن يكفي جزء": "Store covers part", "الأوردرات مكتملة": "Orders covered", "مش مطلوبة دلوقتي": "Not needed now", "ناقص في:": "Short in:", "يفضل": "left", "هيتحجز": "Will reserve", "هيرجع للمخزن": "Will return to store", "هيفضل في المخزن": "Left in store", "دور بالكود أو اسم الخامة": "Search code or material name", "مفيش حركة لسه": "No moves yet", "مسح أوردر": "Order deleted", "مسح خامة من أوردر": "Material removed from order", "المخزن مش مكفي. المتاح": "Not enough in store. Available"});
 var LET=/[ء-ي]/,AR=/[؀-ۿ]/;
 var keys=Object.keys(DICT).sort(function(a,b){return b.length-a.length});
 function esc(s){return s.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')}
